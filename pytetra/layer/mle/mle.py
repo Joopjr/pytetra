@@ -9,6 +9,7 @@ from pytetra.layer.mle.pdu import (
     DRestoreAck,
 )
 from pytetra.layer.mle.elements import (
+    La,
     Mcc,
     Mnc,
     ProtocolDiscriminator,
@@ -204,5 +205,13 @@ class Mle(Layer, UpperTlaSap, UpperTlbSap):
                 % (len(sdu), type(exc).__name__, exc)
             )
             return
+
+        try:
+            self.stack.lower_mac.set_location_area(pdu[La].value)
+        except Exception as exc:
+            self.warning(
+                "Location area update failed | ErrorType(%s) | Error(%s)"
+                % (type(exc).__name__, exc)
+            )
 
         self.expose_pdu(pdu)

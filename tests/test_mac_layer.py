@@ -138,13 +138,18 @@ class MacLayerTestCase(unittest.TestCase):
 
     def test_summary_uses_layer2_when_no_layer3_exists(self):
         stack = TetraStack(RecordingUser, debug=False)
+        stack.lower_mac.set_mobile_codes(204, 1000)
+        stack.lower_mac.set_location_area(2333)
         stack.begin_burst()
         stack.upper_mac._handle_data_pdu(self._resource_with_ssi(3436244))
         stack.finish_burst()
 
         self.assertEqual(len(stack.user.summaries), 1)
         line = format_chain(stack.user.summaries[0])
-        self.assertTrue(line.startswith("DL; Layer 2 - MAC(MacResourcePdu);"))
+        self.assertTrue(line.startswith(
+            "DL; MCC(204), MNC(1000), LA(2333); "
+            "Layer 2 - MAC(MacResourcePdu);"
+        ))
         self.assertIn("SSI(3436244)", line)
         self.assertNotIn("Sdu(", line)
 
@@ -162,7 +167,10 @@ class MacLayerTestCase(unittest.TestCase):
 
         self.assertEqual(len(stack.user.summaries), 1)
         line = format_chain(stack.user.summaries[0])
-        self.assertTrue(line.startswith("DL; Layer 3 - MM(DAuthentication);"))
+        self.assertTrue(line.startswith(
+            "DL; MCC(0), MNC(0), LA(0); "
+            "Layer 3 - MM(DAuthentication);"
+        ))
         self.assertIn("SSI(3436244)", line)
         self.assertIn("AuthenticationResult('Authentication successful')", line)
         self.assertIn("ResponseValue(400645741)", line)

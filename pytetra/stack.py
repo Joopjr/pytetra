@@ -62,6 +62,9 @@ class TetraStack(object):
         previous = self._active_mac_chain
         chain = {
             "ssi": getattr(pdu, "ssi", None),
+            "mcc": self.lower_mac.mcc,
+            "mnc": self.lower_mac.mnc,
+            "la": self.lower_mac.la,
             "layer2": None,
             "layer3": None,
             "layer3_priority": -1,
@@ -93,5 +96,32 @@ class TetraStack(object):
             "Sndcp": 2,
         }.get(layer)
         if priority is not None and priority >= chain["layer3_priority"]:
+            la = self._find_named_field_value(pdu, "La")
+            if la is not None:
+                self.lower_mac.set_location_area(la)
+                chain["la"] = self.lower_mac.la
             chain["layer3"] = (layer, pdu)
             chain["layer3_priority"] = priority
+
+    @classmethod
+    def _find_named_field_value(cls, value, field_name):
+        """Find an integer protocol field in a nested parsed PDU."""
+        fields = getattr(value, "fields", None)
+        if fields is None:
+            return None
+
+        for key, item in fields.items():
+            if getattr(key, "__name__", None) == field_name:
+                return getattr(item, "value", None)
+
+            if isinstance(item, list):
+                for nested in item:
+                    result = cls._find_named_field_value(nested, field_name)
+                    if result is not None:
+                        return result
+            else:
+                result = cls._find_named_field_value(item, field_name)
+                if result is not None:
+                    return result
+
+        return None

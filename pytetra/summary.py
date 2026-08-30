@@ -64,12 +64,18 @@ def _flatten_named_value(name, value):
 
 def format_chain(chain):
     ssi = chain["ssi"]
+    cell = "MCC(%s), MNC(%s), LA(%s)" % (
+        chain.get("mcc"),
+        chain.get("mnc"),
+        chain.get("la"),
+    )
     layer3 = chain.get("layer3")
     if layer3 is not None:
         layer_name, pdu = layer3
         fields = ["SSI(%d)" % ssi]
         fields.extend(_flatten_layer3_value(pdu))
-        return "DL; Layer 3 - %s(%s); %s" % (
+        return "DL; %s; Layer 3 - %s(%s); %s" % (
+            cell,
             LAYER3_NAMES.get(layer_name, layer_name.upper()),
             type(pdu).__name__,
             ", ".join(fields),
@@ -84,7 +90,8 @@ def format_chain(chain):
         "length_indication",
     ):
         fields.append(_format_scalar(name, getattr(pdu, name, None)))
-    return "DL; Layer 2 - MAC(%s); %s" % (
+    return "DL; %s; Layer 2 - MAC(%s); %s" % (
+        cell,
         type(pdu).__name__,
         ", ".join(fields),
     )

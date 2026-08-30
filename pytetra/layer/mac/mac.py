@@ -40,6 +40,7 @@ class LowerMac(Layer, UpperTpSap):
 
         self.mcc = 0
         self.mnc = 0
+        self.la = 0
         self.colour_code = 0
 
         # Indicates that BKN2 was stolen according to the MAC signalling.
@@ -183,6 +184,18 @@ class LowerMac(Layer, UpperTpSap):
         self.colour_code = colour_code
 
         self._update_extended_colour_code()
+
+    def set_location_area(self, la):
+        """Update the current 14-bit location area."""
+        try:
+            la = int(la)
+        except (TypeError, ValueError):
+            return
+
+        if not 0 <= la <= 0x3FFF:
+            raise ValueError("LA must fit in 14 bits")
+
+        self.la = la
 
     def _update_extended_colour_code(self):
         """
