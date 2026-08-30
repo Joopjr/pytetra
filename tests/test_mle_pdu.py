@@ -1,11 +1,44 @@
 import unittest
 from pytetra.pdu.pdu import Bits
 from pytetra.pdu.sublayer32pdu import SduElement
-from pytetra.layer.mle.pdu import MleServicePdu, DMleSync, DMleSysinfo
+from pytetra.layer.mle.pdu import (
+    MleServicePdu,
+    DMleSync,
+    DMleSysinfo,
+    MlePdu,
+    DNewCell,
+    DPrepareFail,
+    DRestoreFail,
+    MleReservedPdu,
+)
 from pytetra.layer.mle.elements import *
 
 
 class MleTestCase(unittest.TestCase):
+    def test_reserved_discriminators_preserve_payload(self):
+        for discriminator in (3, 6, 7):
+            with self.subTest(discriminator=discriminator):
+                payload = "10101"
+                pdu = MlePdu.parse(
+                    Bits(format(discriminator, "03b") + payload)
+                )
+                self.assertIsInstance(pdu, MleReservedPdu)
+                self.assertEqual(pdu[SduElement].value, Bits(payload))
+
+    def test_additional_downlink_control_pdus_are_preserved(self):
+        for discriminator, expected_class in (
+            (0, DNewCell),
+            (1, DPrepareFail),
+            (5, DRestoreFail),
+        ):
+            with self.subTest(discriminator=discriminator):
+                payload = "101011"
+                pdu = MlePdu.parse(
+                    Bits(format(discriminator, "03b") + "0" + payload)
+                )
+                self.assertIsInstance(pdu, expected_class)
+                self.assertEqual(pdu[SduElement].value, Bits(payload))
+
     def test_mlepdu(self):
         bits = '00101010111000001010100000111010001101110000010011000000101110000100000000000000000000001001000'
         #       ***                                                                                              Protocol discriminator = 1 (MM protocol)

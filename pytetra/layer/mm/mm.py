@@ -2,8 +2,9 @@ from pytetra.layer.mm.pdu import MmPdu
 from pytetra.sap.lmmsap import UpperLmmSap
 from pytetra.layer import Layer
 
-
 class Mm(Layer, UpperLmmSap):
+    layer_number = 3
+
     def mle_unitdata_indication(self, sdu):
         pdu = MmPdu.parse(sdu)
         self.expose_pdu(pdu)

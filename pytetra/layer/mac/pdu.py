@@ -1,6 +1,21 @@
 #!/usr/bin/env python
 
-from pytetra.pdu import Pdu, UIntField, BitsField, ConditionalField
+from pytetra.pdu.pdu import (
+    Pdu,
+    PduDecodingException,
+    UIntField,
+    BitsField,
+    ConditionalField,
+    Bits,
+)
+
+
+def _remove_fill_bits(sdu):
+    """Remove the MAC fill marker (one) and all zero bits after it."""
+    marker = sdu.bits.rstrip("0")
+    if not marker or marker[-1] != "1":
+        raise PduDecodingException("Invalid MAC fill-bit pattern")
+    return Bits(marker[:-1])
 
 
 # 21.4.1 MAC PDU types
@@ -10,14 +25,21 @@ class MacPdu(Pdu):
     ]
 
     def __new__(cls, bits):
-        pdu = super(MacPdu, cls).__new__(cls, bits)
-        super(MacPdu, cls).__init__(pdu, bits)
+        pdu = Pdu.__new__(cls)
+        Pdu.__init__(pdu, bits)
+
         if pdu.pdu_type == 0:
             return MacResourcePdu(bits)
+
         elif pdu.pdu_type == 1:
             return MacFragEnd(bits)
+
         elif pdu.pdu_type == 2:
             return BroadcastPdu(bits)
+
+        raise PduDecodingException(
+            "Unknown MAC PDU type %d" % pdu.pdu_type
+        )
 
 
 class MacFragEnd(Pdu):
@@ -26,8 +48,9 @@ class MacFragEnd(Pdu):
     ]
 
     def __new__(cls, bits):
-        pdu = super(MacFragEnd, cls).__new__(cls, bits)
-        super(MacFragEnd, cls).__init__(pdu, bits)
+        pdu = Pdu.__new__(cls)
+        Pdu.__init__(pdu, bits)
+
         if pdu.pdu_subtype == 0:
             return MacFrag(bits)
         elif pdu.pdu_subtype == 1:
@@ -44,9 +67,7 @@ class MacFrag(Pdu):
         super(MacFrag, self).__init__(bits)
         sdu = BitsField('sdu', len(bits)).dissect(self, bits)
         if self.fill_bits_indication:
-            while sdu[-1] == '0':
-                sdu = sdu[:-1]
-            sdu = sdu[:-1]
+            sdu = _remove_fill_bits(sdu)
         self.fields['sdu'] = sdu
 
 
@@ -75,14 +96,12 @@ class MacEnd(Pdu):
     ]
 
     def __init__(self, bits):
-        initialSize = len(bits) + 3
+        initial_size = len(bits) + 3
         super(MacEnd, self).__init__(bits)
-        sduSize = self.length_indication * 8 - (initialSize - len(bits))
-        sdu = BitsField('sdu', sduSize).dissect(self, bits)
+        sdu_size = self.length_indication * 8 - (initial_size - len(bits))
+        sdu = BitsField('sdu', sdu_size).dissect(self, bits)
         if self.fill_bits_indication:
-            while sdu[-1] == '0':
-                sdu = sdu[:-1]
-            sdu = sdu[:-1]
+            sdu = _remove_fill_bits(sdu)
         self.fields['sdu'] = sdu
 
 
@@ -129,23 +148,46 @@ class MacResourcePdu(Pdu):
         ConditionalField(UIntField("frame_18_monitoring_pattern", 2), lambda pkt: pkt.channel_allocation_flag and pkt.monitoring_pattern == 0),
     ]
 
-    def __new__(cls, bits):
-        pdu = NullPdu(bits[:])
-        if pdu.address_type == 0:
-            return pdu
-        else:
-            return super(MacResourcePdu, cls).__new__(cls, bits)
-
     def __init__(self, bits):
-        initialSize = len(bits) + 2
+        # Preserve the number of bits initially available to this MAC PDU.
+        # Pdu.__init__() consumes the header from bits in place.
+        # MacPdu has already consumed the two-bit PDU discriminator.
+        initial_size = len(bits) + 2
+
         super(MacResourcePdu, self).__init__(bits)
-        sduSize = self.length_indication * 8 - (initialSize - len(bits))
-        sdu = BitsField('sdu', sduSize).dissect(self, bits)
+
+        # A length indication of 2 with address type 0 carries no LLC SDU.
+        if self.length_indication == 2 and self.address_type == 0:
+                self.fields['sdu'] = Bits('')
+                return
+
+        # A length indication of 0 with address type 0 is padding.
+        if self.length_indication == 0 and self.address_type == 0:
+                self.fields['sdu'] = Bits('')
+                return
+
+        # The length indication is the total MAC-RESOURCE length in octets,
+        # including the MAC header and SDU.
+        total_resource_bits = self.length_indication * 8
+
+        # After header parsing, bits contains only unconsumed data.
+        remaining_bits = len(bits)
+
+        # Never consume beyond the PDU length or the available block.
+        sdu_bits = total_resource_bits - (initial_size - remaining_bits)
+
+        if sdu_bits < 0:
+                sdu_bits = 0
+
+        sdu_bits = min(sdu_bits, remaining_bits)
+
+        sdu = BitsField('sdu', sdu_bits).dissect(self, bits)
+
         if self.fill_bits_indication:
-            while sdu[-1] == '0':
-                sdu = sdu[:-1]
-            sdu = sdu[:-1]
+                sdu = _remove_fill_bits(sdu)
+
         self.fields['sdu'] = sdu
+
 
 
 # 21.4.4 TMB-SAP: MAC PDU structure for broadcast
@@ -155,12 +197,41 @@ class BroadcastPdu(Pdu):
     ]
 
     def __new__(cls, bits):
-        pdu = super(BroadcastPdu, cls).__new__(cls, bits)
-        super(BroadcastPdu, cls).__init__(pdu, bits)
+        pdu = Pdu.__new__(cls)
+        Pdu.__init__(pdu, bits)
+
         if pdu.broadcast_type == 0:
             return SysinfoPdu(bits)
-        elif pdu.pdu_type == 1:
+        elif pdu.broadcast_type == 1:
             return AccessDefinePdu(bits)
+
+        raise PduDecodingException(
+            "Reserved MAC-BROADCAST subtype %d" % pdu.broadcast_type
+        )
+
+
+# 21.4.4.3 ACCESS-DEFINE
+class AccessDefinePdu(Pdu):
+    fields_desc = [
+        UIntField("common_assigned_control_channel_flag", 1),
+        UIntField("access_code", 2),
+        UIntField("imm", 4),
+        UIntField("wt", 4),
+        UIntField("nu", 4),
+        UIntField("frame_length_factor", 1),
+        UIntField("timeslot_pointer", 4),
+        UIntField("minimum_priority", 3),
+        UIntField("optional_field", 2),
+        ConditionalField(
+            UIntField("subscriber_class_bitmap", 16),
+            lambda pkt: pkt.optional_field == 1
+        ),
+        ConditionalField(
+            UIntField("gssi", 24),
+            lambda pkt: pkt.optional_field == 2
+        ),
+        UIntField("filler_bits", 3),
+    ]
 
 
 # 21.4.4.1 SYSINFO
@@ -172,17 +243,17 @@ class SysinfoPdu(Pdu):
         UIntField("duplex_spacing", 3),
         UIntField("reverse_operation", 1),
         UIntField("number_of_scch", 2),
-        UIntField("max_ms_txpwer", 3),
+        UIntField("max_ms_tx_power", 3),
         UIntField("min_rxlevel", 4),
         UIntField("access_parameter", 4),
         UIntField("radio_downlink_timeout", 4),
         UIntField("hyperframe_or_cck", 1),
         ConditionalField(UIntField("hyperframe_number", 16), lambda pkt: pkt.hyperframe_or_cck == 0),
         ConditionalField(UIntField("cck", 16), lambda pkt: pkt.hyperframe_or_cck == 1),
-        UIntField("optionnal_field", 2),
-        ConditionalField(UIntField("ts_common_frames", 20), lambda pkt: pkt.optionnal_field in [0, 1]),
-        ConditionalField(UIntField("default_def_access_code_a", 20), lambda pkt: pkt.optionnal_field == 2),
-        ConditionalField(UIntField("extended_services", 20), lambda pkt: pkt.optionnal_field == 3),
+        UIntField("optional_field", 2),
+        ConditionalField(UIntField("ts_common_frames", 20), lambda pkt: pkt.optional_field in [0, 1]),
+        ConditionalField(UIntField("default_def_access_code_a", 20), lambda pkt: pkt.optional_field == 2),
+        ConditionalField(UIntField("extended_services", 20), lambda pkt: pkt.optional_field == 3),
         BitsField("sdu", 42),
     ]
 

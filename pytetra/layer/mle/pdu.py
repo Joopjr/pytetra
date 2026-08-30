@@ -45,6 +45,24 @@ class MleServicePdu(Pdu):
     has_o_bit = False
 
 
+class DNewCell(Pdu):
+    """D-NEW CELL; preserve its service payload without guessing fields."""
+    name = "D-NEW CELL"
+    type1 = [Type1(PduType)]
+    type2 = []
+    type34 = []
+    sdu = True
+
+
+class DPrepareFail(Pdu):
+    """D-PREPARE FAIL; preserve its service payload without guessing fields."""
+    name = "D-PREPARE FAIL"
+    type1 = [Type1(PduType)]
+    type2 = []
+    type34 = []
+    sdu = True
+
+
 # 18.4.1.4.1 D-NWRK-BROADCAST
 class DNwrkBroadcast(Pdu):
     name = "D-NWRK-BROADCAST"
@@ -56,7 +74,14 @@ class DNwrkBroadcast(Pdu):
     type2 = [
         Type2(TetraNetworkTime),
         Type2(NumberOfNeighbourCells),
-        Repeat(NeighbourCellInformation, lambda pkt: pkt[NumberOfNeighbourCells].value),
+        Repeat(
+            NeighbourCellInformation,
+            lambda pkt: (
+                pkt.fields[NumberOfNeighbourCells].value
+                if NumberOfNeighbourCells in pkt.fields
+                else 0
+            ),
+        ),
     ]
     type34 = []
 
@@ -72,10 +97,35 @@ class DRestoreAck(Pdu):
     sdu = True
 
 
+class DRestoreFail(Pdu):
+    """D-RESTORE FAIL; preserve its service payload without guessing fields."""
+    name = "D-RESTORE-FAIL"
+    type1 = [Type1(PduType)]
+    type2 = []
+    type34 = []
+    sdu = True
+
+
+class MleReservedPdu(Pdu):
+    """Reserved MLE discriminator; preserve the body for diagnostics."""
+    name = "MLE-RESERVED"
+    type1 = [Type1(PduType)]
+    type2 = []
+    type34 = []
+    sdu = True
+    has_o_bit = False
+
+
 # 18.4.1.2 PDU type
 class MlePdu(PduDiscriminator):
     element = PduType
     pdu_types = {
+        0: DNewCell,
+        1: DPrepareFail,
         2: DNwrkBroadcast,
+        3: MleReservedPdu,
         4: DRestoreAck,
+        5: DRestoreFail,
+        6: MleReservedPdu,
+        7: MleReservedPdu,
     }

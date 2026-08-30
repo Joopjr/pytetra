@@ -6,13 +6,22 @@ from pytetra.layer.mac.rmcode import RMDecoder
 from pytetra.layer.mac.reordering import TchsReorderer
 
 
+#class Decoder(object):
+#    def decode(self, b5):
+#        b4 = self.unscramble(b5)
+#        b3 = self.deinterleave(b4)
+#        b2 = self.convolutional_decode(b3)
+#        b1, crc_pass = self.block_decode(b2)
+#        return b1, crc_pass
 class Decoder(object):
     def decode(self, b5):
         b4 = self.unscramble(b5)
         b3 = self.deinterleave(b4)
         b2 = self.convolutional_decode(b3)
         b1, crc_pass = self.block_decode(b2)
+
         return b1, crc_pass
+
 
 
 class SCHFDecoder(Decoder):

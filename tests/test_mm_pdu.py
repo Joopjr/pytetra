@@ -40,14 +40,16 @@ class MmTestCase(unittest.TestCase):
             PduType(5),
             LocationUpdateAcceptType('ITSI attach'),
             GroupIdentityLocationAccept(
-                GroupIdentityAcceptReject('accept'),
+                GroupIdentityAcceptReject('All attachment/detachments accepted'),
                 Reserved(0),
                 [
                     GroupIdentityDownlink(
-                        GroupIdentityAttachDetachTypeIdentifier('attach'),
+                        GroupIdentityAttachDetachTypeIdentifier('Attachment'),
                         GroupIdentityAttachment(
-                            GroupIdentityAttachmentLifetime(3),
-                            ClassOfUsage(4)
+                            GroupIdentityAttachmentLifetime(
+                                'Attachment for next location update required'
+                            ),
+                            ClassOfUsage('Class of usage 5')
                         ),
                         GroupIdentityAddressType('GSSI'),
                         Gssi(8388609)

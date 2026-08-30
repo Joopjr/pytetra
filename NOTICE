@@ -1,0 +1,8 @@
+PyTetra downlink decoder
+
+This project derives from PyTetra by Timothée Cocault:
+https://github.com/Tim---/pytetra
+
+This distribution contains substantial Python 3, downlink decoding,
+validation, and logging changes contributed by later maintainers.
+The complete work remains licensed under the GNU General Public License v2.

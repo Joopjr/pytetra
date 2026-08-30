@@ -16,6 +16,20 @@ class Element(object):
         raise NotImplementedError
 
 
+class UnknownType34Element(Element):
+    def __init__(self, identifier, length, value):
+        self.identifier = identifier
+        self.length = length
+        self.value = value
+
+    def __repr__(self):
+        return "UnknownType34Element(Identifier(%d), Length(%d), Value(%r))" % (
+            self.identifier,
+            self.length,
+            self.value,
+        )
+
+
 class LeafElement(Element):
     length = None
 
@@ -62,6 +76,21 @@ class CompoundElement(Element):
 
     @classmethod
     def parse(cls, bits, length=None):
+        if length is not None:
+            if length > len(bits):
+                raise PduDecodingException(
+                    "%s length %d exceeds %d available bits"
+                    % (cls.__name__, length, len(bits))
+                )
+            bounded = bits.read(length)
+            result = cls.parse(bounded)
+            if len(bounded):
+                raise PduDecodingException(
+                    "%s left %d bits inside bounded element"
+                    % (cls.__name__, len(bounded))
+                )
+            return result
+
         compound_element = cls()
 
         for elem in compound_element.type1:
@@ -74,26 +103,79 @@ class CompoundElement(Element):
                     elem.decode(compound_element, bits)
 
                 if compound_element.type34:
-                    for elem in compound_element.type34:
-                        elem.decode(compound_element, bits)
-                    m_bit = bits.read_int(1)
+                    compound_element._decode_type34_chain(bits)
 
         if compound_element.sdu:
             compound_element.add_field(SduElement(bits.read(len(bits))))
 
         return compound_element
 
+    def _decode_type34_chain(self, bits):
+        descriptors = {
+            field.element.identifier: field
+            for field in self.type34
+            if getattr(field.element, "identifier", None) is not None
+        }
+
+        while True:
+            if len(bits) < 1:
+                raise PduDecodingException("Missing final M-bit")
+            if bits.peek_int(0, 1) == 0:
+                bits.read(1)
+                return
+            if len(bits) < 16:
+                raise PduDecodingException("Truncated Type 3/4 header")
+
+            identifier = bits.peek_int(1, 4)
+            descriptor = descriptors.get(identifier)
+            if descriptor is not None:
+                before = len(bits)
+                descriptor.decode(self, bits)
+                if len(bits) >= before:
+                    raise PduDecodingException(
+                        "Type 3/4 decoder consumed no bits for identifier %d"
+                        % identifier
+                    )
+                continue
+
+            bits.read(1)
+            bits.read(4)
+            length = bits.read_int(11)
+            if length > len(bits):
+                raise PduDecodingException(
+                    "Unknown Type 3/4 element %d length %d exceeds %d bits"
+                    % (identifier, length, len(bits))
+                )
+            self.add_field(
+                UnknownType34Element(identifier, length, bits.read(length))
+            )
+
     def add_field(self, field):
         if isinstance(field, list):
-            self.fields[field[0].__class__] = field
+            if not field:
+                return
+            key = field[0].__class__
         else:
-            self.fields[field.__class__] = field
+            key = field.__class__
+
+        if key not in self.fields:
+            self.fields[key] = field
+            return
+
+        current = self.fields[key]
+        if not isinstance(current, list):
+            current = [current]
+            self.fields[key] = current
+        if isinstance(field, list):
+            current.extend(field)
+        else:
+            current.append(field)
 
     def __getitem__(self, item):
         return self.fields[item]
 
     def __repr__(self):
-        return self.__class__.__name__ + '(' + ', '.join(map(repr, self.fields.values())) + ')'
+        return self.__class__.__name__ + '(' + ', '.join(map(repr, list(self.fields.values()))) + ')'
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -119,7 +201,22 @@ class PduDiscriminator(Pdu):
     @classmethod
     def parse(cls, bits):
         t = bits.peek_int(0, cls.element.length)
-        return cls.pdu_types[t].parse(bits) if t in cls.pdu_types else bits
+
+        if t not in cls.pdu_types:
+            raise PduDecodingException(
+                "Unknown %s PDU type %d (0x%X), %d bits remaining: %s"
+                % (
+                    cls.__name__,
+                    t,
+                    t,
+                    len(bits),
+                    bits.bits
+                )
+            )
+
+        pdu_class = cls.pdu_types[t]
+
+        return pdu_class.parse(bits)
 
 
 class TypeField(object):
@@ -164,7 +261,7 @@ class Type3(TypeField):
             if element_identifier == self.element.identifier:
                 bits.read(5)
                 length = bits.read_int(11)
-                parent.add_field(self.element.parse(bits))
+                parent.add_field(self.element.parse(bits, length))
 
 
 class Type4(TypeField):
@@ -178,8 +275,25 @@ class Type4(TypeField):
             if element_identifier == self.element.identifier:
                 bits.read(5)
                 length = bits.read_int(11)
-                repeat = bits.read_int(6)
-                parent.add_field([self.element.parse(bits) for r in range(repeat)])
+                if length > len(bits):
+                    raise PduDecodingException(
+                        "Type 4 length %d exceeds %d available bits"
+                        % (length, len(bits))
+                    )
+                payload = bits.read(length)
+                if len(payload) < 6:
+                    raise PduDecodingException("Type 4 element misses repeat count")
+                repeat = payload.read_int(6)
+                if repeat == 0:
+                    raise PduDecodingException("Invalid Type 4 repeat count 0")
+                parent.add_field([
+                    self.element.parse(payload)
+                    for r in range(repeat)
+                ])
+                if len(payload):
+                    raise PduDecodingException(
+                        "Type 4 element left %d trailing bits" % len(payload)
+                    )
 
 
 class Repeat(TypeField):

@@ -1,3 +1,4 @@
+from pytetra.layer.sndcp import Sndcp
 from pytetra.layer.phy import Phy
 from pytetra.layer.mac import LowerMac, UpperMac
 from pytetra.layer.llc import Llc
@@ -5,11 +6,22 @@ from pytetra.layer.mle import Mle
 from pytetra.layer.cmce import Cmce
 from pytetra.layer.mm import Mm
 from pytetra.layer.user import UserLayer
+from pytetra.logger import Logger
+from contextlib import contextmanager
 
 
 class TetraStack(object):
-    def __init__(self, user_class=UserLayer):
-        self.phy = Phy(self)
+    def __init__(self, user_class=UserLayer, debug=False,
+                 debug_layer2=None, debug_llc=None):
+        Logger.reset()
+        self.debug = bool(debug)
+        self._output_suppression_depth = 0
+        self._burst_chains = None
+        self._active_mac_chain = None
+        self.debug_layer2 = self.debug if debug_layer2 is None else bool(debug_layer2)
+        self.debug_llc = self.debug if debug_llc is None else bool(debug_llc)
+        self.sndcp = Sndcp(self)
+        self.phy = Phy(self, log_layer1=self.debug)
         self.lower_mac = LowerMac(self)
         self.upper_mac = UpperMac(self)
         self.llc = Llc(self)
@@ -17,3 +29,69 @@ class TetraStack(object):
         self.cmce = Cmce(self)
         self.mm = Mm(self)
         self.user = user_class(self)
+
+    @property
+    def output_suppressed(self):
+        return not self.debug and self._output_suppression_depth > 0
+
+    @contextmanager
+    def output_context(self, suppress=False):
+        """Temporarily hide protocol output while decoding continues."""
+        if suppress and not self.debug:
+            self._output_suppression_depth += 1
+        try:
+            yield
+        finally:
+            if suppress and not self.debug:
+                self._output_suppression_depth -= 1
+
+    def begin_burst(self):
+        if not self.debug:
+            self._burst_chains = []
+
+    def finish_burst(self):
+        if self.debug or self._burst_chains is None:
+            return
+        chains = self._burst_chains
+        self._burst_chains = None
+        if chains:
+            self.user.burst_summary_indication(chains)
+
+    @contextmanager
+    def mac_pdu_context(self, pdu, suppress=False):
+        previous = self._active_mac_chain
+        chain = {
+            "ssi": getattr(pdu, "ssi", None),
+            "layer2": None,
+            "layer3": None,
+            "layer3_priority": -1,
+        }
+        self._active_mac_chain = chain
+        try:
+            with self.output_context(suppress):
+                yield
+        finally:
+            self._active_mac_chain = previous
+            if (
+                not self.debug
+                and self._burst_chains is not None
+                and chain["layer2"] is not None
+            ):
+                self._burst_chains.append(chain)
+
+    def record_pdu(self, layer, pdu):
+        if self.debug or self._active_mac_chain is None:
+            return
+        chain = self._active_mac_chain
+        if layer == "UpperMac":
+            chain["layer2"] = pdu
+            return
+        priority = {
+            "Mle": 1,
+            "Cmce": 2,
+            "Mm": 2,
+            "Sndcp": 2,
+        }.get(layer)
+        if priority is not None and priority >= chain["layer3_priority"]:
+            chain["layer3"] = (layer, pdu)
+            chain["layer3_priority"] = priority

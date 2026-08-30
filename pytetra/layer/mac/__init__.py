@@ -1,1 +1,1 @@
-from mac import LowerMac, UpperMac
+from .mac import LowerMac, UpperMac

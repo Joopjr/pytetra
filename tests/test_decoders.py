@@ -1,7 +1,7 @@
 import unittest
 from pytetra.layer.mac.decoder import SCHFDecoder, BSCHDecoder, AACHDecoder, BNCHDecoder, NormalTchsDecoder, StealingTchsDecoder
 
-f = lambda l: map(int, l)
+f = lambda l: list(map(int, l))
 
 
 class DecoderTestCase(object):

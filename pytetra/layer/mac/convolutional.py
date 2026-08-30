@@ -32,7 +32,7 @@ class ConvolutionalDecoder(object):
         h = [0] * self.num_states
 
         # What is the cheaper way to get to each state ?
-        for newstate in xrange(self.num_states):
+        for newstate in range(self.num_states):
             # Each state has 2 possible predecessors
             oldstate1, output1 = self.prevstate[newstate][0]
             oldstate2, output2 = self.prevstate[newstate][1]
@@ -75,7 +75,7 @@ class ConvolutionalDecoder(object):
         b2 = [0] * len(history)
 
         # Walk the history backward to get the type-2 bits
-        for t in xrange(len(history) - 1, - 1, -1):
+        for t in range(len(history) - 1, - 1, -1):
             oldstate = history[t][state]
             b2[t] = self.next_state[oldstate].index(state)
             state = oldstate
@@ -178,16 +178,16 @@ if __name__ == "__main__":
             c1(b3)
         end = time.time()
         speed1 = 1000. * (end - start) / times
-        print "Fast decoder : %s ms" % (speed1, )
+        print("Fast decoder : %s ms" % (speed1, ))
 
         start = time.time()
         for i in range(times):
             c2(b3)
         end = time.time()
         speed2 = 1000. * (end - start) / times
-        print "Real decoder : %s ms" % (speed2)
+        print("Real decoder : %s ms" % (speed2))
 
-        print "Relative speed : %s%%" % (100 * speed1 / speed2)
+        print("Relative speed : %s%%" % (100 * speed1 / speed2))
 
     def bench_correction():
         import random
@@ -195,11 +195,11 @@ if __name__ == "__main__":
             s = 0
             for i in range(1000):
                 b3e = b3[:]
-                for x in random.sample(range(len(b3)), numerrors):
+                for x in random.sample(list(range(len(b3))), numerrors):
                     b3e[x] ^= 1
                 if c2(b3e) == b2:
                     s += 1
-            print numerrors, s / 1000.
+            print(numerrors, s / 1000.)
 
     from pytetra.layer.mac.puncturer import Depuncturer_2_3
     b3 = [1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0]
@@ -207,6 +207,6 @@ if __name__ == "__main__":
     c1 = FastConvolutionalDecoder(Depuncturer_2_3())
     c2 = ConvolutionalDecoder2_3()
 
-    print c2(b3) == b2
+    print(c2(b3) == b2)
 
     bench_correction()

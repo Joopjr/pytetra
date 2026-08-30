@@ -1,5 +1,6 @@
 import operator
 import itertools
+from functools import reduce
 
 G = [[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0],
      [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0],
@@ -57,7 +58,7 @@ class RMDecoder(object):
     def __init__(self):
         # Create the syndromes dictionary
         self.syndromes = {}
-        errors_generator = itertools.chain(*(itertools.combinations(range(30), i) for i in range(1, 3)))
+        errors_generator = itertools.chain(*(itertools.combinations(list(range(30)), i) for i in range(1, 3)))
         for errors in errors_generator:
             # s is a vector of 0 < hamming weight <= 2
             s = tuple(int(i in errors) for i in range(30))
@@ -72,7 +73,7 @@ class RMDecoder(object):
 
         if not crc_pass and syn in self.syndromes:
             # If we know the syndrome, less than 3 bits where changed and we try to correct them
-            b2 = list(itertools.starmap(operator.xor, itertools.izip(b2, self.syndromes[syn])))
+            b2 = list(itertools.starmap(operator.xor, zip(b2, self.syndromes[syn])))
             crc_pass = not any(dot(b2, H))
 
         return b2[:14], crc_pass
