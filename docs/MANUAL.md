@@ -90,13 +90,13 @@ reached by each permitted SSI chain.
 Layer-2-only example:
 
 ```text
-DL; MCC(204), MNC(1000), LA(2333); Layer 2 - MAC(MacResourcePdu); SSI(450407), AddressType(1), EncryptionMode(3), RandomAccessFlag(0), LengthIndication(16)
+DL; MCC(204), MNC(1000), LA(1234); Layer 2 - MAC(MacResourcePdu); SSI(2345678), AddressType(1), EncryptionMode(3), RandomAccessFlag(0), LengthIndication(16)
 ```
 
 Layer-3 example:
 
 ```text
-DL; MCC(204), MNC(1000), LA(2333); Layer 3 - MM(DAuthentication); SSI(3436244), AuthenticationSubtype('D-AUTHENTICATION RESULT'), AuthenticationResult('Authentication successful'), MutualAuthenticationFlag('Mutual authentication requested'), ResponseValue(400645741)
+DL; MCC(204), MNC(1000), LA(1234); Layer 3 - MM(DAuthentication); SSI(1234567), AuthenticationSubtype('D-AUTHENTICATION RESULT'), AuthenticationResult('Authentication successful'), MutualAuthenticationFlag('Mutual authentication requested'), ResponseValue(400645741)
 ```
 
 `DL` means downlink. `Layer 2 - MAC` or `Layer 3 - MM` identifies the highest

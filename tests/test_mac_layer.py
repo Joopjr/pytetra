@@ -120,7 +120,7 @@ class MacLayerTestCase(unittest.TestCase):
             with self.subTest(encryption_mode=encryption_mode):
                 stack = TetraStack(RecordingUser, debug=False)
                 stack.llc = Layer3Probe(stack)
-                pdu = self._resource_with_ssi(3436244)
+                pdu = self._resource_with_ssi(1234567)
                 pdu.fields["encryption_mode"] = encryption_mode
 
                 stack.upper_mac._handle_data_pdu(pdu)
@@ -140,7 +140,7 @@ class MacLayerTestCase(unittest.TestCase):
             "0"        # random access flag
             "000110"   # total length: six octets
             "001"      # SSI address
-            + format(3436244, "024b")
+            + format(1234567, "024b")
             + "0"      # power control flag
             + "0"      # slot granting flag
             + "0"      # channel allocation flag
@@ -194,23 +194,23 @@ class MacLayerTestCase(unittest.TestCase):
     def test_summary_uses_layer2_when_no_layer3_exists(self):
         stack = TetraStack(RecordingUser, debug=False)
         stack.lower_mac.set_mobile_codes(204, 1000)
-        stack.lower_mac.set_location_area(2333)
+        stack.lower_mac.set_location_area(1234)
         stack.begin_burst()
-        stack.upper_mac._handle_data_pdu(self._resource_with_ssi(3436244))
+        stack.upper_mac._handle_data_pdu(self._resource_with_ssi(1234567))
         stack.finish_burst()
 
         self.assertEqual(len(stack.user.summaries), 1)
         line = format_chain(stack.user.summaries[0])
         self.assertTrue(line.startswith(
-            "DL; MCC(204), MNC(1000), LA(2333); "
+            "DL; MCC(204), MNC(1000), LA(1234); "
             "Layer 2 - MAC(MacResourcePdu);"
         ))
-        self.assertIn("SSI(3436244)", line)
+        self.assertIn("SSI(1234567)", line)
         self.assertNotIn("Sdu(", line)
 
     def test_authentication_result_is_selected_as_highest_layer(self):
         stack = TetraStack(RecordingUser, debug=False)
-        pdu = self._resource_with_ssi(3436244)
+        pdu = self._resource_with_ssi(1234567)
         pdu.fields["length_indication"] = 13
         pdu.fields["sdu"] = Bits(
             "00001100100011011000101111110000101011110011011010"
@@ -226,7 +226,7 @@ class MacLayerTestCase(unittest.TestCase):
             "DL; MCC(0), MNC(0), LA(0); "
             "Layer 3 - MM(DAuthentication);"
         ))
-        self.assertIn("SSI(3436244)", line)
+        self.assertIn("SSI(1234567)", line)
         self.assertIn("AuthenticationResult('Authentication successful')", line)
         self.assertIn("ResponseValue(400645741)", line)
 
@@ -279,7 +279,7 @@ class MacLayerTestCase(unittest.TestCase):
             "1"        # random access flag
             "000110"   # total length: six octets
             "001"      # SSI address
-            + format(3436244, "024b")
+            + format(1234567, "024b")
             + "0"      # power control flag
             + "0"      # slot granting flag
             + "0"      # channel allocation flag
@@ -318,6 +318,7 @@ class MacLayerTestCase(unittest.TestCase):
 
     @patch("builtins.print")
     def test_logger_prints_a_section_only_when_layer_changes(self, output):
+        Logger.set_writer(None)
         Logger.reset()
         Logger.log("first", 1)
         Logger.log("second", 1)
@@ -330,3 +331,16 @@ class MacLayerTestCase(unittest.TestCase):
         self.assertIn("Layer 2 - MAC / LLC", lines[3])
         self.assertTrue(lines[3].startswith("▓"))
         self.assertEqual(lines[4], "third")
+
+    def test_logger_can_route_complete_lines_to_live_frontend(self):
+        lines = []
+        Logger.set_writer(lines.append)
+        try:
+            Logger.reset()
+            Logger.log("DL; Layer 2", 2)
+        finally:
+            Logger.set_writer(None)
+
+        self.assertEqual(len(lines), 2)
+        self.assertIn("Layer 2 - MAC / LLC", lines[0])
+        self.assertEqual(lines[1], "DL; Layer 2")

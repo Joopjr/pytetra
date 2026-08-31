@@ -58,8 +58,8 @@ PYTHONPATH=. python3 examples/dump.py recording.bits
 Normal output selects the highest decoded layer for each permitted SSI chain:
 
 ```text
-DL; MCC(204), MNC(1000), LA(2333); Layer 2 - MAC(MacResourcePdu); SSI(3436244), AddressType(1), EncryptionMode(0), RandomAccessFlag(1), LengthIndication(6)
-DL; MCC(204), MNC(1000), LA(2333); Layer 3 - MM(DLocationUpdateAccept); SSI(3436244), LocationUpdateAcceptType('ITSI attach'), SubscriberClass(5), ScchInformation(8), DistributionOn18thFrame(0), LaTimer('1 hour'), La(2333)
+DL; MCC(204), MNC(1000), LA(1234); Layer 2 - MAC(MacResourcePdu); SSI(1234567), AddressType(1), EncryptionMode(0), RandomAccessFlag(1), LengthIndication(6)
+DL; MCC(204), MNC(1000), LA(1234); Layer 3 - MM(DLocationUpdateAccept); SSI(1234567), LocationUpdateAcceptType('ITSI attach'), SubscriberClass(5), ScchInformation(8), DistributionOn18thFrame(0), LaTimer('1 hour'), La(1234)
 ```
 
 Enable the complete Layer 1, Lower MAC, Upper MAC, LLC, and Layer 3 trace with:

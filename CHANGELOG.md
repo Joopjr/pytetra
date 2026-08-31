@@ -8,6 +8,10 @@ MAC/LLC/MLE dispatch, and a subset of CMCE and MM PDUs.
 
 ## 1.0.0
 
+- replaced captured SSI, GSSI and location-area identifiers in public
+  documentation and regression fixtures with synthetic example values;
+- added an optional line-writer hook so live frontends can timestamp all
+  compact, section and diagnostic output while offline decoding keeps stdout;
 - treated every non-zero MAC encryption mode as opaque cipher text and stopped
   residual MAC-block parsing after a bounded encrypted SDU, preventing false
   SSI and downstream Layer-3 interpretation from encrypted payload bits;

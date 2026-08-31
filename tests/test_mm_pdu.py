@@ -6,7 +6,7 @@ from pytetra.layer.mm.elements import *
 
 class MmTestCase(unittest.TestCase):
     def test_dlocationupdateaccept(self):
-        bits = '0101011100000101010000011101000110111000001001100000010111000010000000000000000000000100'
+        bits = '0101011100000101010000011101000110111000001001100000010111000001110100110010111011000100'
         #       ****                                                                                      PDU type = 5 (D-LOCATION UPDATE ACCEPT)
         #           ***                                                                                   Location update accept type = 3 (ITSI attach)
         #              O                                                                                  O-Bit = 1
@@ -33,7 +33,7 @@ class MmTestCase(unittest.TestCase):
         #                                                              **                                         Group identity attachment lifetime = 3 (Attachment for next location update required)
         #                                                                ***                                      Class of Usage = 4 (Class of usage 5)
         #                                                                   **                                  Group identity address type = 0 (GSSI)
-        #                                                                     ************************          GSSI = 8388609
+        #                                                                     ************************          GSSI = 7654321
         #                                                                                             *     M-Bit = 0
         #                                                                                              *  M-Bit = 0
         pdu = DLocationUpdateAccept(
@@ -52,7 +52,7 @@ class MmTestCase(unittest.TestCase):
                             ClassOfUsage('Class of usage 5')
                         ),
                         GroupIdentityAddressType('GSSI'),
-                        Gssi(8388609)
+                        Gssi(7654321)
                     )
                 ]
             )
