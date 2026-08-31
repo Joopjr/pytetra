@@ -2,7 +2,7 @@ import unittest
 from collections import OrderedDict
 from unittest.mock import patch
 
-from pytetra.layer.mac.pdu import MacPdu, MacResourcePdu
+from pytetra.layer.mac.pdu import MacEnd, MacPdu, MacResourcePdu
 from pytetra.logger import Logger
 from pytetra.pdu import Bits
 from pytetra.stack import TetraStack
@@ -234,6 +234,24 @@ class MacLayerTestCase(unittest.TestCase):
         pdu = MacPdu(bits)
 
         self.assertEqual(len(bits), 0)
+        self.assertEqual(pdu.sdu, "")
+
+    def test_mac_end_accepts_zero_only_fill_padding(self):
+        # Prefix captured from a real SCH/HD block that previously raised
+        # "Invalid MAC fill-bit pattern". Its seven-octet MAC-END contains a
+        # six-bit, zero-only fill area after the channel-allocation fields.
+        bits = Bits(
+            "01110000111010010101101001001110100101100011110011"
+            "000000"
+            + "00001100"
+            + "0" * 60
+        )
+
+        pdu = MacPdu(bits)
+
+        self.assertIsInstance(pdu, MacEnd)
+        self.assertEqual(pdu.fill_bits_indication, 1)
+        self.assertEqual(pdu.length_indication, 7)
         self.assertEqual(pdu.sdu, "")
 
     @patch("builtins.print")

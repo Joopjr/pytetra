@@ -14,13 +14,9 @@ from pytetra.layer.mac.reordering import TchsReorderer
 #        b1, crc_pass = self.block_decode(b2)
 #        return b1, crc_pass
 class Decoder(object):
-    def decode(self, b5, confidence=None):
+    def decode(self, b5):
         b4 = self.unscramble(b5)
-        if confidence is None:
-            b3 = self.deinterleave(b4)
-        else:
-            b4_soft = self.unscramble.confidence(confidence)
-            b3 = self.deinterleave(b4_soft)
+        b3 = self.deinterleave(b4)
         b2 = self.convolutional_decode(b3)
         b1, crc_pass = self.block_decode(b2)
 
@@ -56,10 +52,7 @@ class AACHDecoder(Decoder):
     def __init__(self, extended_colour_code):
         self.unscramble = Unscrambler(extended_colour_code)
         self.deinterleave = lambda x: x
-        self.convolutional_decode = lambda x: [
-            int(value >= 0.0) if isinstance(value, float) else int(value)
-            for value in x
-        ]
+        self.convolutional_decode = lambda x: x
         self.block_decode = RMDecoder()
 
 
@@ -71,8 +64,8 @@ class NormalTchsDecoder(Decoder):
         self.block_decode = NormalTchsCrcChecker()
         self.reorder = TchsReorderer()
 
-    def decode(self, b5, confidence=None):
-        b1, crc_pass = super(NormalTchsDecoder, self).decode(b5, confidence)
+    def decode(self, b5):
+        b1, crc_pass = super(NormalTchsDecoder, self).decode(b5)
         b0 = self.reorder(b1[::2]), self.reorder(b1[1::2])
         return b0, crc_pass
 
@@ -85,8 +78,8 @@ class StealingTchsDecoder(Decoder):
         self.block_decode = StealingTchsCrcChecker()
         self.reorder = TchsReorderer()
 
-    def decode(self, b5, confidence=None):
-        b1, crc_pass = super(StealingTchsDecoder, self).decode(b5, confidence)
+    def decode(self, b5):
+        b1, crc_pass = super(StealingTchsDecoder, self).decode(b5)
         b0 = self.reorder(b1)
         return b0, crc_pass
 
@@ -98,8 +91,8 @@ class Decoders(dict):
     def __init__(self):
         self['BSCH'] = BSCHDecoder()
 
-    def decode(self, channel, b5, confidence=None):
-        return self[channel].decode(b5, confidence)
+    def decode(self, channel, b5):
+        return self[channel].decode(b5)
 
     def set_extended_colour_code(self, extended_colour_code):
         self['SCH/F'] = SCHFDecoder(extended_colour_code)

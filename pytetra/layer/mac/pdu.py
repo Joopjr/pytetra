@@ -13,8 +13,12 @@ from pytetra.pdu.pdu import (
 def _remove_fill_bits(sdu):
     """Remove the MAC fill marker (one) and all zero bits after it."""
     marker = sdu.bits.rstrip("0")
-    if not marker or marker[-1] != "1":
-        raise PduDecodingException("Invalid MAC fill-bit pattern")
+    # Some networks emit a fill-indicated MAC-END whose remaining SDU area
+    # contains only zero padding, without the normally required one marker.
+    # Treat that observed wire representation as an empty SDU instead of
+    # rejecting the complete MAC PDU.
+    if not marker:
+        return Bits("")
     return Bits(marker[:-1])
 
 

@@ -29,7 +29,6 @@ class Phy(Layer):
         self.log_layer1 = bool(log_layer1)
         self.locked = False
         self.stream = []
-        self.soft_stream = []
         self.index = 0
         self.bursts_decoded = 0
         self.bursts_rejected = 0
@@ -90,19 +89,11 @@ class Phy(Layer):
             ),
         ):
             self.sync_bursts += 1
-            if getattr(self.stack.lower_mac, "supports_soft_input", False):
-                self.stack.lower_mac.tp_sb_indication(
-                    burst.sb,
-                    burst.bb,
-                    burst.bkn2,
-                    burst.confidence("sb"),
-                    burst.confidence("bb"),
-                    burst.confidence("bkn2"),
-                )
-            else:
-                self.stack.lower_mac.tp_sb_indication(
-                    burst.sb, burst.bb, burst.bkn2
-                )
+            self.stack.lower_mac.tp_sb_indication(
+                burst.sb,
+                burst.bb,
+                burst.bkn2,
+            )
             return
 
         if isinstance(
@@ -113,20 +104,12 @@ class Phy(Layer):
             ),
         ):
             self.normal_bursts += 1
-            if getattr(self.stack.lower_mac, "supports_soft_input", False):
-                self.stack.lower_mac.tp_ndb_indication(
-                    burst.bb,
-                    burst.bkn1,
-                    burst.bkn2,
-                    int(bool(burst.sf)),
-                    burst.confidence("bb"),
-                    burst.confidence("bkn1"),
-                    burst.confidence("bkn2"),
-                )
-            else:
-                self.stack.lower_mac.tp_ndb_indication(
-                    burst.bb, burst.bkn1, burst.bkn2, int(bool(burst.sf))
-                )
+            self.stack.lower_mac.tp_ndb_indication(
+                burst.bb,
+                burst.bkn1,
+                burst.bkn2,
+                int(bool(burst.sf)),
+            )
             return
 
         raise TypeError("Unsupported downlink burst type: %s" % type(burst).__name__)
@@ -149,8 +132,6 @@ class Phy(Layer):
 
             self.locked = False
             return
-
-        burst.attach_confidence(self.soft_stream[:self.burst_bits])
 
         if self.log_layer1:
             fields = burst.layer1_fields()
@@ -189,26 +170,7 @@ class Phy(Layer):
             raise ValueError("PHY input must contain unpacked binary values 0 or 1")
 
         self.stream.extend(values)
-        self.soft_stream.extend(1.0 if bit else -1.0 for bit in values)
 
-        self._drain()
-
-    def feed_soft(self, data, confidence):
-        """Feed hard bits with signed reliability for soft-decision FEC."""
-        values = list(data)
-        reliability = [float(value) for value in confidence]
-        if len(values) != len(reliability):
-            raise ValueError("PHY soft input length must match bit input length")
-        if any(bit not in (0, 1) for bit in values):
-            raise ValueError("PHY input must contain unpacked binary values 0 or 1")
-        if any(not (-1.0 <= value <= 1.0) for value in reliability):
-            raise ValueError("PHY confidence must be between -1 and 1")
-        self.stream.extend(values)
-        self.soft_stream.extend(reliability)
-
-        self._drain()
-
-    def _drain(self):
         while len(self.stream) >= self.burst_bits:
             if not self.locked:
                 self.sync()
@@ -252,5 +214,4 @@ class Phy(Layer):
 
     def delete(self, size):
         del self.stream[:size]
-        del self.soft_stream[:size]
         self.index += size
