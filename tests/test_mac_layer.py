@@ -254,6 +254,13 @@ class MacLayerTestCase(unittest.TestCase):
         self.assertEqual(pdu.length_indication, 7)
         self.assertEqual(pdu.sdu, "")
 
+    def test_mac_parse_failure_is_silent_without_debug(self):
+        stack = TetraStack(RecordingUser, debug=False)
+        with patch("pytetra.layer.mac.mac.MacPdu", side_effect=ValueError("bad")):
+            with patch.object(stack.upper_mac, "info") as info:
+                stack.upper_mac._handle_mac_block(Bits("01" + "1" * 20), "SCH/F")
+        info.assert_not_called()
+
     @patch("builtins.print")
     def test_logger_prints_a_section_only_when_layer_changes(self, output):
         Logger.reset()

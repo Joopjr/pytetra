@@ -33,6 +33,21 @@ class BSCHTestCase(DecoderTestCase, unittest.TestCase):
         self.crc_pass = True
         self.decoder = BSCHDecoder()
 
+    def test_soft_viterbi_recovers_low_confidence_channel_errors(self):
+        damaged = self.b5[:]
+        damaged[4] ^= 1
+        damaged[15] ^= 1
+        confidence = [1.0 if bit else -1.0 for bit in damaged]
+        confidence[4] *= 0.05
+        confidence[15] *= 0.05
+
+        unused_hard_bits, hard_crc = self.decoder.decode(damaged)
+        recovered, soft_crc = self.decoder.decode(damaged, confidence)
+
+        self.assertFalse(hard_crc)
+        self.assertTrue(soft_crc)
+        self.assertEqual(recovered, self.b1)
+
 
 class BNCHTestCase(DecoderTestCase, unittest.TestCase):
     def setUp(self):
