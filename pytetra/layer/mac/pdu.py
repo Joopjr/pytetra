@@ -120,6 +120,24 @@ class NullPdu(Pdu):
     ]
 
 
+# EN 300 392-2, MAC-RESOURCE address-type table. Keep field presence in one
+# authoritative mapping so parsing and presentation cannot diverge.
+MAC_RESOURCE_ADDRESS_FIELDS = {
+    0: (),
+    1: ("ssi",),
+    2: ("event_label",),
+    3: ("ssi",),
+    4: ("ssi",),
+    5: ("ssi", "event_label"),
+    6: ("ssi", "usage_marker"),
+    7: ("ssi", "event_label"),
+}
+
+
+def mac_resource_address_has(address_type, field_name):
+    return field_name in MAC_RESOURCE_ADDRESS_FIELDS.get(address_type, ())
+
+
 # 21.4.3.1 MAC-RESOURCE
 class MacResourcePdu(Pdu):
     fields_desc = [
@@ -129,9 +147,9 @@ class MacResourcePdu(Pdu):
         UIntField("random_access_flag", 1),
         UIntField("length_indication", 6),
         UIntField("address_type", 3),
-        ConditionalField(UIntField("ssi", 24), lambda pkt: pkt.address_type in [1, 3, 4, 5, 6, 7]),
-        ConditionalField(UIntField("event_label", 10), lambda pkt: pkt.address_type in [2, 5, 7]),
-        ConditionalField(UIntField("usage_marker", 6), lambda pkt: pkt.address_type in [6]),
+        ConditionalField(UIntField("ssi", 24), lambda pkt: mac_resource_address_has(pkt.address_type, "ssi")),
+        ConditionalField(UIntField("event_label", 10), lambda pkt: mac_resource_address_has(pkt.address_type, "event_label")),
+        ConditionalField(UIntField("usage_marker", 6), lambda pkt: mac_resource_address_has(pkt.address_type, "usage_marker")),
         UIntField("power_control_flag", 1),
         ConditionalField(UIntField("power_control_element", 4), lambda pkt: pkt.power_control_flag),
         UIntField("slot_granting_flag", 1),
@@ -159,6 +177,16 @@ class MacResourcePdu(Pdu):
         initial_size = len(bits) + 2
 
         super(MacResourcePdu, self).__init__(bits)
+
+        # ConditionalField historically retained non-selected keys with a
+        # None value. Remove those presentation artefacts: the ETSI address
+        # type selects the fields that are actually present on air.
+        selected_address_fields = MAC_RESOURCE_ADDRESS_FIELDS.get(
+            self.address_type, ()
+        )
+        for address_field in ("ssi", "event_label", "usage_marker"):
+            if address_field not in selected_address_fields:
+                self.fields.pop(address_field, None)
 
         # A length indication of 2 with address type 0 carries no LLC SDU.
         if self.length_indication == 2 and self.address_type == 0:

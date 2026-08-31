@@ -2,7 +2,12 @@ import unittest
 from collections import OrderedDict
 from unittest.mock import patch
 
-from pytetra.layer.mac.pdu import MacEnd, MacPdu, MacResourcePdu
+from pytetra.layer.mac.pdu import (
+    MAC_RESOURCE_ADDRESS_FIELDS,
+    MacEnd,
+    MacPdu,
+    MacResourcePdu,
+)
 from pytetra.logger import Logger
 from pytetra.pdu import Bits
 from pytetra.stack import TetraStack
@@ -36,11 +41,11 @@ class Layer3Probe(object):
 
 class MacLayerTestCase(unittest.TestCase):
     @staticmethod
-    def _resource_with_ssi(ssi):
+    def _resource_with_ssi(ssi, address_type=1):
         pdu = object.__new__(MacResourcePdu)
         pdu.fields = OrderedDict((
             ("length_indication", 4),
-            ("address_type", 1),
+            ("address_type", address_type),
             ("ssi", ssi),
             ("encryption_mode", 0),
             ("sdu", Bits("0000")),
@@ -114,6 +119,64 @@ class MacLayerTestCase(unittest.TestCase):
             [layer for layer, unused in stack.user.records],
             ["UpperMac", "Mle"],
         )
+
+    def test_compact_output_hides_selected_address_types_and_layer3(self):
+        for address_type in (2, 3, 6):
+            with self.subTest(address_type=address_type):
+                stack = TetraStack(RecordingUser, debug=False)
+                stack.llc = Layer3Probe(stack)
+
+                stack.upper_mac._handle_data_pdu(
+                    self._resource_with_ssi(1234567, address_type)
+                )
+
+                self.assertEqual(stack.user.records, [])
+
+    def test_debug_keeps_selected_address_types_visible(self):
+        for address_type in (2, 3, 6):
+            with self.subTest(address_type=address_type):
+                stack = TetraStack(RecordingUser, debug=True)
+                stack.llc = Layer3Probe(stack)
+
+                stack.upper_mac._handle_data_pdu(
+                    self._resource_with_ssi(1234567, address_type)
+                )
+
+                self.assertEqual(
+                    [layer for layer, unused in stack.user.records],
+                    ["UpperMac", "Mle"],
+                )
+
+    def test_etsi_address_table_declares_the_parsed_keys(self):
+        self.assertEqual(MAC_RESOURCE_ADDRESS_FIELDS[0], ())
+        self.assertEqual(MAC_RESOURCE_ADDRESS_FIELDS[1], ("ssi",))
+        self.assertEqual(MAC_RESOURCE_ADDRESS_FIELDS[2], ("event_label",))
+        self.assertEqual(MAC_RESOURCE_ADDRESS_FIELDS[5], ("ssi", "event_label"))
+        self.assertEqual(MAC_RESOURCE_ADDRESS_FIELDS[6], ("ssi", "usage_marker"))
+
+    def test_mac_resource_keeps_only_etsi_selected_address_keys(self):
+        bits = Bits(
+            "00"       # MAC-RESOURCE
+            "0"        # fill bits indication
+            "0"        # position of grant
+            "00"       # encryption mode
+            "0"        # random access flag
+            "000101"   # total length: five octets
+            "010"      # event-label address type
+            "1010101010"  # event label
+            "0"        # power control flag
+            "0"        # slot granting flag
+            "0"        # channel allocation flag
+            "0" * 11   # remaining SDU/padding within declared length
+        )
+
+        pdu = MacPdu(bits)
+
+        self.assertEqual(pdu.event_label, int("1010101010", 2))
+        self.assertNotIn("ssi", pdu.fields)
+        self.assertNotIn("usage_marker", pdu.fields)
+        self.assertIn("EventLabel(682)", repr(pdu))
+        self.assertNotIn("SSI(None)", repr(pdu))
 
     def test_all_encryption_modes_are_kept_out_of_llc(self):
         for encryption_mode in (1, 2, 3):

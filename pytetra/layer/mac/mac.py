@@ -451,7 +451,9 @@ class UpperMac(Layer, UpperTmvSap):
 
     @staticmethod
     def _hide_filtered_ssi_output(pdu):
-        """Hide MAC chains for absent, zero, or broadcast SSI values."""
+        """Hide compact chains excluded by identity and address policy."""
+        if getattr(pdu, "address_type", None) in (2, 3, 6):
+            return True
         return getattr(pdu, "ssi", None) in (None, 0, 0xFFFFFF)
 
     # ------------------------------------------------------------------

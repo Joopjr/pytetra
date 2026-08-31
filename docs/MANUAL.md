@@ -121,17 +121,29 @@ not printed.
 If one physical burst contains several genuinely addressed MAC chains, each
 chain receives its own line so no addressed protocol data is discarded.
 
-## 7. Address types 1 and 6
+## 7. MAC-RESOURCE address fields
 
-Both forms contain a 24-bit SSI:
+The MAC-RESOURCE parser follows the address-type field-presence table in
+ETSI EN 300 392-2. The value selects which keys physically follow the header:
 
 | Address type | Fields | Use |
 | ---: | --- | --- |
-| 1 | SSI | Direct individual addressing |
-| 6 | SSI and 6-bit usage marker | Individual addressing tied to a channel/traffic usage context |
+| 0 | none | No address fields |
+| 1 | 24-bit SSI | SSI addressing |
+| 2 | 10-bit event label | Event-label addressing |
+| 3 | 24-bit SSI | SSI-bearing address form |
+| 4 | 24-bit SSI | SSI-bearing address form |
+| 5 | 24-bit SSI and 10-bit event label | Combined addressing |
+| 6 | 24-bit SSI and 6-bit usage marker | SSI tied to a usage context |
+| 7 | 24-bit SSI and 10-bit event label | Combined addressing |
 
 The usage marker helps associate the addressed subscriber with a physical
 channel allocation. It does not replace the SSI.
+
+Normal compact output intentionally suppresses address types 2, 3 and 6 and
+their causally downstream Layer-3 output. They remain fully visible with
+`--debug`. For visible combined address forms, `EventLabel` is printed under
+its ETSI field name rather than being presented as an SSI or usage marker.
 
 ## 8. Encryption mode
 

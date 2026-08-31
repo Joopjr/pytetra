@@ -71,6 +71,11 @@ pytetra-dump --debug recording.bits
 Raw MAC SDUs are intentionally omitted from compact output and remain visible
 in debug mode.
 
+Compact output also suppresses MAC-RESOURCE address types 2, 3 and 6, including
+the Layer-3 output causally decoded from those resources. `--debug` retains the
+complete ETSI-named address fields: `SSI`, `EventLabel`, and `UsageMarker` as
+selected by the MAC-RESOURCE address-type table.
+
 ## Example capture
 
 The repository includes `examples/example.bits`. It is a deterministic,

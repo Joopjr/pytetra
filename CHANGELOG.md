@@ -8,6 +8,9 @@ MAC/LLC/MLE dispatch, and a subset of CMCE and MM PDUs.
 
 ## 1.0.0
 
+- centralized MAC-RESOURCE address-field selection in an ETSI table, retained
+  type-specific `SSI`, `EventLabel`, and `UsageMarker` keys, and suppressed
+  address types 2, 3 and 6 plus their downstream chains from compact output;
 - replaced captured SSI, GSSI and location-area identifiers in public
   documentation and regression fixtures with synthetic example values;
 - added an optional line-writer hook so live frontends can timestamp all

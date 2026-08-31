@@ -1,5 +1,6 @@
 from pytetra.logger import field_name
 from pytetra.pdu import Bits
+from pytetra.layer.mac.pdu import MAC_RESOURCE_ADDRESS_FIELDS
 
 
 LAYER3_NAMES = {
@@ -85,10 +86,13 @@ def format_chain(chain):
     fields = ["SSI(%d)" % ssi]
     for name in (
         "address_type",
+        *MAC_RESOURCE_ADDRESS_FIELDS.get(getattr(pdu, "address_type", None), ()),
         "encryption_mode",
         "random_access_flag",
         "length_indication",
     ):
+        if name == "ssi":
+            continue
         fields.append(_format_scalar(name, getattr(pdu, name, None)))
     return "DL; %s; Layer 2 - MAC(%s); %s" % (
         cell,

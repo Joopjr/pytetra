@@ -3,7 +3,10 @@ import re
 
 
 def field_name(name):
-    aliases = {"min_rxlevel": "MinRxLevel"}
+    aliases = {
+        "ssi": "SSI",
+        "min_rxlevel": "MinRxLevel",
+    }
     if name in aliases:
         return aliases[name]
     return "".join(part[:1].upper() + part[1:] for part in name.split("_"))
