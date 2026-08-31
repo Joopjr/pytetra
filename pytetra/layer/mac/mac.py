@@ -782,6 +782,21 @@ class UpperMac(Layer, UpperTmvSap):
             ):
                 self._handle_data_pdu(pdu)
 
+                # Only mode 0 carries a clear MAC-SDU. Once an encrypted SDU
+                # has been bounded and consumed, do not attempt to discover
+                # more MAC PDUs in the residual decoded block. This is a
+                # deliberately conservative guard against interpreting
+                # cipher text or an incorrect length boundary as another
+                # address-bearing MAC-RESOURCE PDU.
+                if self._has_encrypted_sdu(pdu):
+                    if self.debug_enabled and len(remaining):
+                        self.info(
+                            "DEBUG encrypted boundary | channel=%s | "
+                            "encryption_mode=%d | ignored_trailing_bits=%d"
+                            % (channel, pdu.encryption_mode, len(remaining))
+                        )
+                    break
+
             # ----------------------------------------------------------
             # 10. Continue with whatever remains.
             #
@@ -828,6 +843,21 @@ class UpperMac(Layer, UpperTmvSap):
     # ------------------------------------------------------------------
     # Individual MAC PDUs
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _has_encrypted_sdu(pdu):
+        """Return true only for a non-empty ciphered MAC-RESOURCE SDU."""
+        if not isinstance(pdu, MacResourcePdu):
+            return False
+        if getattr(pdu, "encryption_mode", 0) == 0:
+            return False
+        sdu = getattr(pdu, "sdu", None)
+        if sdu is None:
+            return False
+        try:
+            return len(sdu) > 0
+        except Exception:
+            return False
 
     def _handle_sysinfo_pdu(self, pdu):
         """
@@ -933,12 +963,14 @@ class UpperMac(Layer, UpperTmvSap):
             # ----------------------------------------------------------
             # Encryption.
             #
-            # encryption_mode=3 in the observed capture means the SDU
-            # cannot be handed to LLC as clear plaintext.
+            # Encryption mode zero denotes a clear MAC-SDU. Modes 1, 2 and 3
+            # select cipher contexts and must never be interpreted as clear
+            # LLC data. The TEA algorithm selection is separate from this
+            # two-bit MAC field.
             #
             # Do NOT call tma_unitdata_indication() here.
             # ----------------------------------------------------------
-            if encryption_mode == 3:
+            if encryption_mode != 0:
                 with self.stack.mac_pdu_context(
                     pdu,
                     self._hide_filtered_ssi_output(pdu),
@@ -989,7 +1021,7 @@ class UpperMac(Layer, UpperTmvSap):
             )
 
             # Never deliver encrypted data as clear LLC data.
-            if encryption_mode == 3:
+            if encryption_mode != 0:
                 return
 
             try:

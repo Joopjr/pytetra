@@ -8,6 +8,10 @@ MAC/LLC/MLE dispatch, and a subset of CMCE and MM PDUs.
 
 ## 1.0.0
 
+- treated every non-zero MAC encryption mode as opaque cipher text and stopped
+  residual MAC-block parsing after a bounded encrypted SDU, preventing false
+  SSI and downstream Layer-3 interpretation from encrypted payload bits;
+
 - added optional live soft-bit confidence from PHY through unscrambling and
   deinterleaving into a soft-decision Viterbi decoder;
 - retained normal CRC gating so uncertain or uncorrectable blocks are dropped;

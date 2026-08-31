@@ -115,6 +115,61 @@ class MacLayerTestCase(unittest.TestCase):
             ["UpperMac", "Mle"],
         )
 
+    def test_all_encryption_modes_are_kept_out_of_llc(self):
+        for encryption_mode in (1, 2, 3):
+            with self.subTest(encryption_mode=encryption_mode):
+                stack = TetraStack(RecordingUser, debug=False)
+                stack.llc = Layer3Probe(stack)
+                pdu = self._resource_with_ssi(3436244)
+                pdu.fields["encryption_mode"] = encryption_mode
+
+                stack.upper_mac._handle_data_pdu(pdu)
+
+                self.assertEqual(
+                    [layer for layer, unused in stack.user.records],
+                    ["UpperMac"],
+                )
+
+    def test_encrypted_sdu_stops_further_mac_block_parsing(self):
+        stack = TetraStack(RecordingUser, debug=False)
+        encrypted_resource = (
+            "00"       # MAC-RESOURCE
+            "0"        # fill bits indication
+            "0"        # position of grant
+            "11"       # encrypted MAC-SDU
+            "0"        # random access flag
+            "000110"   # total length: six octets
+            "001"      # SSI address
+            + format(3436244, "024b")
+            + "0"      # power control flag
+            + "0"      # slot granting flag
+            + "0"      # channel allocation flag
+            + "10101"  # opaque encrypted SDU
+        )
+        apparent_second_resource = (
+            "00"       # MAC-RESOURCE
+            "0"        # fill bits indication
+            "0"        # position of grant
+            "00"       # clear
+            "0"        # random access flag
+            "000010"   # minimal resource
+            "000"      # no address
+            "0"        # power control flag
+            "0"        # slot granting flag
+            "0"        # channel allocation flag
+        )
+
+        stack.upper_mac._handle_mac_block(
+            Bits(encrypted_resource + apparent_second_resource),
+            "SCH/F",
+        )
+
+        self.assertEqual(stack.upper_mac.parsed_pdus["MacResourcePdu"], 1)
+        self.assertEqual(
+            [layer for layer, unused in stack.user.records],
+            ["UpperMac"],
+        )
+
     def test_hidden_sysinfo_also_hides_downstream_mle(self):
         stack = TetraStack(RecordingUser, debug=False)
         stack.llc = Layer3Probe(stack)
