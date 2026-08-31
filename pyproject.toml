@@ -8,6 +8,7 @@ version = "1.0.0"
 description = "Python 3 decoder for ETSI TETRA downlink protocol layers"
 readme = "README.md"
 requires-python = ">=3.9"
+dependencies = ["numpy>=1.23"]
 license = {text = "GPL-2.0-only"}
 authors = [
   {name = "Timothée Cocault"},

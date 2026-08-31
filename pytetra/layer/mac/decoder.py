@@ -1,3 +1,5 @@
+import numbers
+
 from pytetra.layer.mac.scrambling import Unscrambler
 from pytetra.layer.mac.interleaving import BSCHDeinterleaver, SCHFDeinterleaver, HalfDeinterleaver, TCHSDeinterleaver
 from pytetra.layer.mac.convolutional import ConvolutionalDecoder2_3, NormalTchsConvolutionalDecoder, StealingTchsConvolutionalDecoder
@@ -57,7 +59,7 @@ class AACHDecoder(Decoder):
         self.unscramble = Unscrambler(extended_colour_code)
         self.deinterleave = lambda x: x
         self.convolutional_decode = lambda x: [
-            int(value >= 0.0) if isinstance(value, float) else int(value)
+            int(value >= 0.0) if not isinstance(value, numbers.Integral) else int(value)
             for value in x
         ]
         self.block_decode = RMDecoder()

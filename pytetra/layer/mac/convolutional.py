@@ -2,6 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import itertools
+import numbers
+
+import numpy as np
 
 
 class ConvolutionalDecoder(object):
@@ -26,6 +29,19 @@ class ConvolutionalDecoder(object):
                 newstate = self.next_state[oldstate][input_]
                 output = self.next_output[oldstate][input_]
                 self.prevstate[newstate].append((oldstate, to_bin(output)))
+
+        # Flatten and vectorize the fixed 16-state trellis once. This keeps
+        # exact Viterbi decisions while removing the per-state Python hotspot.
+        predecessor_a = tuple(item[0][0] for item in self.prevstate)
+        predecessor_b = tuple(item[1][0] for item in self.prevstate)
+        expected_a = tuple(item[0][1] for item in self.prevstate)
+        expected_b = tuple(item[1][1] for item in self.prevstate)
+        self._predecessor_a = np.asarray(predecessor_a, dtype=np.intp)
+        self._predecessor_b = np.asarray(predecessor_b, dtype=np.intp)
+        self._expected_a = np.asarray(expected_a, dtype=np.int8)
+        self._expected_b = np.asarray(expected_b, dtype=np.int8)
+        self._soft_a = np.where(self._expected_a, 1.0, -1.0).astype(np.float32)
+        self._soft_b = np.where(self._expected_b, 1.0, -1.0).astype(np.float32)
 
     def decode_symbol(self, received, oldcost, n):
         cost = [0] * self.num_states
@@ -65,21 +81,34 @@ class ConvolutionalDecoder(object):
         return cost
 
     def __call__(self, b3):
-        # We begin in state 0
-        oldcost = [self.MAX] * self.num_states
-        oldcost[0] = 0
+        values = np.asarray(b3)
+        oldcost = np.full(self.num_states, float(self.MAX), dtype=np.float64)
+        oldcost[0] = 0.0
         history = []
+        soft = len(values) > 0 and not np.issubdtype(values.dtype, np.integer)
 
-        # For each symbol
-        for j, n in enumerate(self.puncturing):
-            # We get the significant bits of the symbol (bits not punctured)
-            received, b3 = b3[:n], b3[n:]
-
-            # Symbol decoding
-            oldcost, h = self.decode_symbol(received, oldcost, n)
-            history.append(h)
-
-            if not len(b3):
+        position = 0
+        for n in self.puncturing:
+            received = values[position:position + n]
+            position += n
+            if soft:
+                # Euclidean distance and negative correlation differ only by
+                # a branch-independent constant, so path decisions are exact.
+                metric_a = -(self._soft_a[:, :n] @ received)
+                metric_b = -(self._soft_b[:, :n] @ received)
+            else:
+                metric_a = np.count_nonzero(
+                    self._expected_a[:, :n] != received, axis=1)
+                metric_b = np.count_nonzero(
+                    self._expected_b[:, :n] != received, axis=1)
+            first = oldcost[self._predecessor_a] + metric_a
+            second = oldcost[self._predecessor_b] + metric_b
+            choose_first = first < second
+            oldcost = np.where(choose_first, first, second)
+            history.append(np.where(
+                choose_first, self._predecessor_a, self._predecessor_b
+            ).astype(np.int8))
+            if position >= len(values):
                 break
 
         # We have 4 tail bits to 0, so we should end in state 0
@@ -88,7 +117,7 @@ class ConvolutionalDecoder(object):
 
         # Walk the history backward to get the type-2 bits
         for t in range(len(history) - 1, - 1, -1):
-            oldstate = history[t][state]
+            oldstate = int(history[t][state])
             b2[t] = self.next_state[oldstate].index(state)
             state = oldstate
 
@@ -167,7 +196,7 @@ class NormalTchsConvolutionalDecoder(TchsConvolutionalDecoder):
     ))
 
     def __call__(self, b3):
-        uncoded = [int(value >= 0.0) if isinstance(value, float) else int(value)
+        uncoded = [int(value >= 0.0) if not isinstance(value, numbers.Integral) else int(value)
                    for value in b3[:2 * 51]]
         return uncoded + super(NormalTchsConvolutionalDecoder, self).__call__(b3[2 * 51:])
 
@@ -179,7 +208,7 @@ class StealingTchsConvolutionalDecoder(TchsConvolutionalDecoder):
     ))
 
     def __call__(self, b3):
-        uncoded = [int(value >= 0.0) if isinstance(value, float) else int(value)
+        uncoded = [int(value >= 0.0) if not isinstance(value, numbers.Integral) else int(value)
                    for value in b3[:51]]
         return uncoded + super(StealingTchsConvolutionalDecoder, self).__call__(b3[51:])
 

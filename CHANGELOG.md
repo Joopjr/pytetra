@@ -8,6 +8,11 @@ MAC/LLC/MLE dispatch, and a subset of CMCE and MM PDUs.
 
 ## 1.0.0
 
+- vectorized all sixteen Viterbi trellis states with NumPy to remove the
+  real-time convolutional-decoder bottleneck without weakening soft-decision
+  error correction;
+- corrected soft-input detection for NumPy floating-point values in Viterbi,
+  AACH, and TCH/S decoding;
 - centralized MAC-RESOURCE address-field selection in an ETSI table, retained
   type-specific `SSI`, `EventLabel`, and `UsageMarker` keys, and suppressed
   address types 2, 3 and 6 plus their downstream chains from compact output;
