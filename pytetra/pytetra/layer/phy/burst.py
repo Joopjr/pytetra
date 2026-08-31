@@ -36,6 +36,32 @@ class Burst(object):
         if not self.check():
             raise TrainingSequenceError("Training sequence check failed")
 
+        self.soft_fields = {}
+
+    def attach_confidence(self, confidence):
+        """Attach signed bit confidence without changing decoded hard bits."""
+        hard_bits = []
+        for name, unused_size in self.fields_desc:
+            hard_bits.extend(self.fields[name])
+        if confidence is None or len(confidence) != len(hard_bits):
+            confidence = [1.0 if bit else -1.0 for bit in hard_bits]
+        self.soft_fields = {}
+        index = 0
+        for name, size in self.fields_desc:
+            self.soft_fields[name] = list(confidence[index:index + size])
+            index += size
+
+        if "bb1" in self.soft_fields and "bb2" in self.soft_fields:
+            self.soft_fields["bb"] = (
+                self.soft_fields["bb1"] + self.soft_fields["bb2"]
+            )
+
+    def confidence(self, field):
+        values = self.soft_fields.get(field)
+        if values is not None:
+            return values
+        return [1.0 if bit else -1.0 for bit in self.fields[field]]
+
     def __getattr__(self, attr):
         if attr in self.fields:
             return self.fields[attr]

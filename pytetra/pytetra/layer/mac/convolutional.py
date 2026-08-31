@@ -38,8 +38,8 @@ class ConvolutionalDecoder(object):
             oldstate2, output2 = self.prevstate[newstate][1]
 
             # Compute the cost of each state
-            c1 = oldcost[oldstate1] + self.diff[n](received, output1)
-            c2 = oldcost[oldstate2] + self.diff[n](received, output2)
+            c1 = oldcost[oldstate1] + self.branch_metric(received, output1)
+            c2 = oldcost[oldstate2] + self.branch_metric(received, output2)
 
             # The cheaper old state is written in history, and we keep its cost
             # for the next symbol decoding
@@ -51,6 +51,18 @@ class ConvolutionalDecoder(object):
                 h[newstate] = oldstate2
 
         return cost, h
+
+    @staticmethod
+    def branch_metric(received, expected):
+        """Euclidean soft metric; binary input retains Hamming behaviour."""
+        cost = 0.0
+        for value, bit in zip(received, expected):
+            if isinstance(value, float):
+                target = 1.0 if bit else -1.0
+                cost += 0.25 * (float(value) - target) ** 2
+            else:
+                cost += int(value) ^ int(bit)
+        return cost
 
     def __call__(self, b3):
         # We begin in state 0
@@ -155,7 +167,9 @@ class NormalTchsConvolutionalDecoder(TchsConvolutionalDecoder):
     ))
 
     def __call__(self, b3):
-        return b3[:2 * 51] + super(NormalTchsConvolutionalDecoder, self).__call__(b3[2 * 51:])
+        uncoded = [int(value >= 0.0) if isinstance(value, float) else int(value)
+                   for value in b3[:2 * 51]]
+        return uncoded + super(NormalTchsConvolutionalDecoder, self).__call__(b3[2 * 51:])
 
 
 class StealingTchsConvolutionalDecoder(TchsConvolutionalDecoder):
@@ -165,7 +179,9 @@ class StealingTchsConvolutionalDecoder(TchsConvolutionalDecoder):
     ))
 
     def __call__(self, b3):
-        return b3[:51] + super(StealingTchsConvolutionalDecoder, self).__call__(b3[51:])
+        uncoded = [int(value >= 0.0) if isinstance(value, float) else int(value)
+                   for value in b3[:51]]
+        return uncoded + super(StealingTchsConvolutionalDecoder, self).__call__(b3[51:])
 
 
 if __name__ == "__main__":

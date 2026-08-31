@@ -34,6 +34,7 @@ class LowerMac(Layer, UpperTpSap):
     """
 
     layer_number = 2
+    supports_soft_input = True
 
     def __init__(self, stack):
         super(LowerMac, self).__init__(stack)
@@ -64,7 +65,10 @@ class LowerMac(Layer, UpperTpSap):
     # Transport SAP
     # ------------------------------------------------------------------
 
-    def tp_sb_indication(self, sb, bb, bkn2):
+    def tp_sb_indication(
+        self, sb, bb, bkn2, sb_confidence=None, bb_confidence=None,
+        bkn2_confidence=None
+    ):
         """
         Superframe / synchronisation burst indication.
 
@@ -78,11 +82,14 @@ class LowerMac(Layer, UpperTpSap):
                 "BKN2_bits=%d"
                 % (len(sb), len(bb), len(bkn2))
             )
-        self.decode("BSCH", sb)
-        self.decode("AACH", bb)
-        self.decode("SCH/HD", bkn2)
+        self.decode("BSCH", sb, sb_confidence)
+        self.decode("AACH", bb, bb_confidence)
+        self.decode("SCH/HD", bkn2, bkn2_confidence)
 
-    def tp_ndb_indication(self, bb, bkn1, bkn2, sf):
+    def tp_ndb_indication(
+        self, bb, bkn1, bkn2, sf, bb_confidence=None,
+        bkn1_confidence=None, bkn2_confidence=None
+    ):
         """
         Normal data block indication.
 
@@ -101,17 +108,22 @@ class LowerMac(Layer, UpperTpSap):
                     self.stack.upper_mac.downlink_usage_marker,
                 )
             )
-        self.decode("AACH", bb)
+        self.decode("AACH", bb, bb_confidence)
 
         usage = self.stack.upper_mac.downlink_usage_marker
 
         if usage in (UpperMac.UMa, UpperMac.UMc):
             # Common control channel.
             if sf == 0:
-                self.decode("SCH/F", bkn1 + bkn2)
+                confidence = (
+                    bkn1_confidence + bkn2_confidence
+                    if bkn1_confidence is not None and bkn2_confidence is not None
+                    else None
+                )
+                self.decode("SCH/F", bkn1 + bkn2, confidence)
             else:
-                self.decode("SCH/HD", bkn1)
-                self.decode("SCH/HD", bkn2)
+                self.decode("SCH/HD", bkn1, bkn1_confidence)
+                self.decode("SCH/HD", bkn2, bkn2_confidence)
 
             return
 
@@ -122,14 +134,19 @@ class LowerMac(Layer, UpperTpSap):
             # sf=0 -> normal TCH/S
             # sf!=0 -> STCH + BKN2 depending on stealing state.
             if sf == 0:
-                self.decode("TCH/S normal", bkn1 + bkn2)
+                confidence = (
+                    bkn1_confidence + bkn2_confidence
+                    if bkn1_confidence is not None and bkn2_confidence is not None
+                    else None
+                )
+                self.decode("TCH/S normal", bkn1 + bkn2, confidence)
             else:
-                self.decode("STCH", bkn1)
+                self.decode("STCH", bkn1, bkn1_confidence)
 
                 if self.bkn2_stolen:
-                    self.decode("STCH", bkn2)
+                    self.decode("STCH", bkn2, bkn2_confidence)
                 else:
-                    self.decode("TCH/S stealing", bkn2)
+                    self.decode("TCH/S stealing", bkn2, bkn2_confidence)
 
                 # Stealing applies to the current pair only.
                 self.bkn2_stolen = False
@@ -229,7 +246,7 @@ class LowerMac(Layer, UpperTpSap):
     # PHY -> MAC
     # ------------------------------------------------------------------
 
-    def decode(self, channel, b5):
+    def decode(self, channel, b5, confidence=None):
         """
         Decode one PHY block and forward the resulting MAC data.
 
@@ -243,7 +260,7 @@ class LowerMac(Layer, UpperTpSap):
         self.decode_attempts[channel] += 1
 
         try:
-            b1, crc_pass = self.decoder.decode(channel, b5)
+            b1, crc_pass = self.decoder.decode(channel, b5, confidence)
         except Exception as exc:
             self.decoder_failures[channel] += 1
             if self.debug_enabled:
@@ -660,18 +677,19 @@ class UpperMac(Layer, UpperTmvSap):
                 pdu = MacPdu(remaining)
             except Exception as exc:
                 self.pdu_failures[channel] += 1
-                self.info(
-                    "DEBUG PDU parse failure | channel=%s | pdu_number=%d | "
-                    "remaining_bits=%d | first_bits=%s | error_type=%s | error=%s"
-                    % (
-                        channel,
-                        pdu_number,
-                        remaining_length,
-                        before_bits[:64],
-                        type(exc).__name__,
-                        exc,
+                if self.debug_enabled:
+                    self.info(
+                        "DEBUG PDU parse failure | channel=%s | pdu_number=%d | "
+                        "remaining_bits=%d | first_bits=%s | error_type=%s | error=%s"
+                        % (
+                            channel,
+                            pdu_number,
+                            remaining_length,
+                            before_bits[:64],
+                            type(exc).__name__,
+                            exc,
+                        )
                     )
-                )
                 break
 
             # ----------------------------------------------------------
