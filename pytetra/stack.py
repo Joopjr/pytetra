@@ -49,6 +49,17 @@ class TetraStack(object):
         if not self.debug:
             self._burst_chains = []
 
+    def reset_after_gap(self):
+        """Discard only state that cannot safely cross a missing burst."""
+        self._burst_chains = None
+        self._active_mac_chain = None
+        self.upper_mac.downlink_usage_marker = None
+        self.lower_mac.bkn2_stolen = False
+        self.upper_mac.defragmenter.reset()
+        self.llc._reset_advanced_segments()
+        self.llc.expected_basic_ns = None
+        self.sndcp.segments.clear()
+
     def finish_burst(self):
         if self.debug or self._burst_chains is None:
             return

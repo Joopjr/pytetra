@@ -8,6 +8,11 @@ MAC/LLC/MLE dispatch, and a subset of CMCE and MM PDUs.
 
 ## 1.0.0
 
+- added optional live soft-bit confidence from PHY through unscrambling and
+  deinterleaving into a soft-decision Viterbi decoder;
+- retained normal CRC gating so uncertain or uncorrectable blocks are dropped;
+- added lightweight stream-gap resets for MAC, LLC, and SNDCP reassembly state;
+
 ### Python 3, packaging, and command line
 
 - ported the Python 2 codebase to Python 3.9 and newer, including iterator,

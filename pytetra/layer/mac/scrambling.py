@@ -13,3 +13,8 @@ class Unscrambler(object):
 
     def __call__(self, b5):
         return list(starmap(xor, zip(b5, self.p)))
+
+    def confidence(self, values):
+        """Apply scrambling to signed reliability by flipping its polarity."""
+        return [(-float(value) if bit else float(value))
+                for value, bit in zip(values, self.p)]
