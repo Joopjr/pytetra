@@ -63,8 +63,14 @@ def _flatten_named_value(name, value):
     return _flatten_layer3_value(value)
 
 
+def _identity_field(chain):
+    """Render the MAC address value using its over-the-air identity type."""
+    encryption_mode = getattr(chain["layer2"], "encryption_mode", None)
+    label = "ESI" if encryption_mode in (2, 3) else "SSI"
+    return "%s(%d)" % (label, chain["ssi"])
+
+
 def format_chain(chain):
-    ssi = chain["ssi"]
     cell = "MCC(%s), MNC(%s), LA(%s)" % (
         chain.get("mcc"),
         chain.get("mnc"),
@@ -73,7 +79,7 @@ def format_chain(chain):
     layer3 = chain.get("layer3")
     if layer3 is not None:
         layer_name, pdu = layer3
-        fields = ["SSI(%d)" % ssi]
+        fields = [_identity_field(chain)]
         fields.extend(_flatten_layer3_value(pdu))
         return "DL; %s; Layer 3 - %s(%s); %s" % (
             cell,
@@ -83,7 +89,7 @@ def format_chain(chain):
         )
 
     pdu = chain["layer2"]
-    fields = ["SSI(%d)" % ssi]
+    fields = [_identity_field(chain)]
     for name in (
         "address_type",
         *MAC_RESOURCE_ADDRESS_FIELDS.get(getattr(pdu, "address_type", None), ()),

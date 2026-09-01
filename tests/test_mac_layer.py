@@ -41,16 +41,39 @@ class Layer3Probe(object):
 
 class MacLayerTestCase(unittest.TestCase):
     @staticmethod
-    def _resource_with_ssi(ssi, address_type=1):
+    def _resource_with_ssi(ssi, address_type=1, encryption_mode=0):
         pdu = object.__new__(MacResourcePdu)
         pdu.fields = OrderedDict((
             ("length_indication", 4),
             ("address_type", address_type),
             ("ssi", ssi),
-            ("encryption_mode", 0),
+            ("encryption_mode", encryption_mode),
             ("sdu", Bits("0000")),
         ))
         return pdu
+
+    def test_compact_identity_label_follows_encryption_mode(self):
+        for encryption_mode, expected_label in (
+            (0, "SSI"),
+            (1, "SSI"),
+            (2, "ESI"),
+            (3, "ESI"),
+        ):
+            with self.subTest(encryption_mode=encryption_mode):
+                pdu = self._resource_with_ssi(
+                    1234567, encryption_mode=encryption_mode
+                )
+                rendered = format_chain({
+                    "ssi": 1234567,
+                    "mcc": 204,
+                    "mnc": 1000,
+                    "la": 1234,
+                    "layer2": pdu,
+                    "layer3": None,
+                })
+                self.assertIn("%s(1234567)" % expected_label, rendered)
+                other_label = "ESI" if expected_label == "SSI" else "SSI"
+                self.assertNotIn("%s(1234567)" % other_label, rendered)
 
     def test_zero_ssi_hides_layer2_and_downstream_layer3(self):
         stack = TetraStack(RecordingUser, debug=False)
