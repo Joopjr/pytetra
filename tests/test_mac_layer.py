@@ -61,19 +61,19 @@ class MacLayerTestCase(unittest.TestCase):
         ):
             with self.subTest(encryption_mode=encryption_mode):
                 pdu = self._resource_with_ssi(
-                    1234567, encryption_mode=encryption_mode
+                    424242, encryption_mode=encryption_mode
                 )
                 rendered = format_chain({
-                    "ssi": 1234567,
+                    "ssi": 424242,
                     "mcc": 204,
                     "mnc": 1000,
-                    "la": 1234,
+                    "la": 42,
                     "layer2": pdu,
                     "layer3": None,
                 })
-                self.assertIn("%s(1234567)" % expected_label, rendered)
+                self.assertIn("%s(424242)" % expected_label, rendered)
                 other_label = "ESI" if expected_label == "SSI" else "SSI"
-                self.assertNotIn("%s(1234567)" % other_label, rendered)
+                self.assertNotIn("%s(424242)" % other_label, rendered)
 
     def test_debug_identity_label_follows_encryption_mode(self):
         for encryption_mode, expected_label in (
@@ -84,18 +84,18 @@ class MacLayerTestCase(unittest.TestCase):
         ):
             with self.subTest(encryption_mode=encryption_mode):
                 pdu = self._resource_with_ssi(
-                    1234567, encryption_mode=encryption_mode
+                    424242, encryption_mode=encryption_mode
                 )
                 rendered = repr(pdu)
-                self.assertIn("%s(1234567)" % expected_label, rendered)
+                self.assertIn("%s(424242)" % expected_label, rendered)
                 other_label = "ESI" if expected_label == "SSI" else "SSI"
-                self.assertNotIn("%s(1234567)" % other_label, rendered)
+                self.assertNotIn("%s(424242)" % other_label, rendered)
 
     def test_encrypted_identity_is_hidden_from_compact_output_by_default(self):
         stack = TetraStack(RecordingUser, debug=False)
         stack.begin_burst()
         stack.upper_mac._handle_data_pdu(
-            self._resource_with_ssi(1234567, encryption_mode=3)
+            self._resource_with_ssi(424242, encryption_mode=3)
         )
         stack.finish_burst()
 
@@ -105,35 +105,35 @@ class MacLayerTestCase(unittest.TestCase):
         stack = TetraStack(RecordingUser, debug=False, show_esi=True)
         stack.begin_burst()
         stack.upper_mac._handle_data_pdu(
-            self._resource_with_ssi(1234567, encryption_mode=3)
+            self._resource_with_ssi(424242, encryption_mode=3)
         )
         stack.finish_burst()
 
         self.assertEqual(len(stack.user.summaries), 1)
-        self.assertIn("ESI(1234567)", format_chain(stack.user.summaries[0]))
+        self.assertIn("ESI(424242)", format_chain(stack.user.summaries[0]))
 
     def test_security_context_reports_first_complete_context_once(self):
         messages = []
         Logger.set_writer(messages.append)
         try:
             stack = TetraStack(RecordingUser, debug=False)
-            stack.lower_mac.set_mobile_codes(204, 1000)
-            stack.lower_mac.set_location_area(2333)
+            stack.lower_mac.set_mobile_codes(204, 9999)
+            stack.lower_mac.set_location_area(42)
             self.assertEqual(messages, [])
 
             sysinfo = type("SysinfoProbe", (), {
                 "hyperframe_or_cck": 1,
-                "cck": 77,
+                "cck": 5,
                 "sdu": None,
             })()
             stack.upper_mac._handle_sysinfo_pdu(sysinfo)
             stack.upper_mac._handle_sysinfo_pdu(sysinfo)
-            stack.lower_mac.set_location_area(2346)
+            stack.lower_mac.set_location_area(43)
         finally:
             Logger.set_writer(None)
 
         self.assertEqual(messages, [
-            "SecurityContext(MCC(204), MNC(1000), LA(2333), CCKId(77), "
+            "SecurityContext(MCC(204), MNC(9999), LA(42), CCKId(5), "
             "EncryptionModeParity(odd))",
         ])
 
@@ -228,7 +228,7 @@ class MacLayerTestCase(unittest.TestCase):
                 stack.llc = Layer3Probe(stack)
 
                 stack.upper_mac._handle_data_pdu(
-                    self._resource_with_ssi(1234567, address_type)
+                    self._resource_with_ssi(424242, address_type)
                 )
 
                 self.assertEqual(stack.user.records, [])
@@ -240,7 +240,7 @@ class MacLayerTestCase(unittest.TestCase):
                 stack.llc = Layer3Probe(stack)
 
                 stack.upper_mac._handle_data_pdu(
-                    self._resource_with_ssi(1234567, address_type)
+                    self._resource_with_ssi(424242, address_type)
                 )
 
                 self.assertEqual(
@@ -284,7 +284,7 @@ class MacLayerTestCase(unittest.TestCase):
             with self.subTest(encryption_mode=encryption_mode):
                 stack = TetraStack(RecordingUser, debug=False)
                 stack.llc = Layer3Probe(stack)
-                pdu = self._resource_with_ssi(1234567)
+                pdu = self._resource_with_ssi(424242)
                 pdu.fields["encryption_mode"] = encryption_mode
 
                 stack.upper_mac._handle_data_pdu(pdu)
@@ -304,7 +304,7 @@ class MacLayerTestCase(unittest.TestCase):
             "0"        # random access flag
             "000110"   # total length: six octets
             "001"      # SSI address
-            + format(1234567, "024b")
+            + format(424242, "024b")
             + "0"      # power control flag
             + "0"      # slot granting flag
             + "0"      # channel allocation flag
@@ -357,24 +357,24 @@ class MacLayerTestCase(unittest.TestCase):
 
     def test_summary_uses_layer2_when_no_layer3_exists(self):
         stack = TetraStack(RecordingUser, debug=False)
-        stack.lower_mac.set_mobile_codes(204, 1000)
-        stack.lower_mac.set_location_area(1234)
+        stack.lower_mac.set_mobile_codes(204, 9999)
+        stack.lower_mac.set_location_area(42)
         stack.begin_burst()
-        stack.upper_mac._handle_data_pdu(self._resource_with_ssi(1234567))
+        stack.upper_mac._handle_data_pdu(self._resource_with_ssi(424242))
         stack.finish_burst()
 
         self.assertEqual(len(stack.user.summaries), 1)
         line = format_chain(stack.user.summaries[0])
         self.assertTrue(line.startswith(
-            "DL; MCC(204), MNC(1000), LA(1234); "
+            "DL; MCC(204), MNC(9999), LA(42); "
             "Layer 2 - MAC(MacResourcePdu);"
         ))
-        self.assertIn("SSI(1234567)", line)
+        self.assertIn("SSI(424242)", line)
         self.assertNotIn("Sdu(", line)
 
     def test_authentication_result_is_selected_as_highest_layer(self):
         stack = TetraStack(RecordingUser, debug=False)
-        pdu = self._resource_with_ssi(1234567)
+        pdu = self._resource_with_ssi(424242)
         pdu.fields["length_indication"] = 13
         pdu.fields["sdu"] = Bits(
             "00001100100011011000101111110000101011110011011010"
@@ -390,7 +390,7 @@ class MacLayerTestCase(unittest.TestCase):
             "DL; MCC(0), MNC(0), LA(0); "
             "Layer 3 - MM(DAuthentication);"
         ))
-        self.assertIn("SSI(1234567)", line)
+        self.assertIn("SSI(424242)", line)
         self.assertIn("AuthenticationResult('Authentication successful')", line)
         self.assertIn("ResponseValue(400645741)", line)
 
@@ -443,7 +443,7 @@ class MacLayerTestCase(unittest.TestCase):
             "1"        # random access flag
             "000110"   # total length: six octets
             "001"      # SSI address
-            + format(1234567, "024b")
+            + format(424242, "024b")
             + "0"      # power control flag
             + "0"      # slot granting flag
             + "0"      # channel allocation flag

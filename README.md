@@ -49,6 +49,10 @@ After installation:
 pytetra-dump recording.bits
 ```
 
+The command accepts the required unpacked `filename`, `--debug` for the full
+protocol trace, `--show-esi` for encrypted-identity chains in compact output,
+and `-h`/`--help` for concise usage information.
+
 From a source checkout without installation:
 
 ```bash
@@ -57,9 +61,11 @@ PYTHONPATH=. python3 examples/dump.py recording.bits
 
 Normal output selects the highest decoded layer for each permitted SSI chain:
 
+The identities and location-area values below are synthetic examples.
+
 ```text
-DL; MCC(204), MNC(1000), LA(1234); Layer 2 - MAC(MacResourcePdu); SSI(1234567), AddressType(1), EncryptionMode(0), RandomAccessFlag(1), LengthIndication(6)
-DL; MCC(204), MNC(1000), LA(1234); Layer 3 - MM(DLocationUpdateAccept); SSI(1234567), LocationUpdateAcceptType('ITSI attach'), SubscriberClass(5), ScchInformation(8), DistributionOn18thFrame(0), LaTimer('1 hour'), La(1234)
+DL; MCC(204), MNC(9999), LA(42); Layer 2 - MAC(MacResourcePdu); SSI(424242), AddressType(1), EncryptionMode(0), RandomAccessFlag(1), LengthIndication(6)
+DL; MCC(204), MNC(9999), LA(42); Layer 3 - MM(DLocationUpdateAccept); SSI(424242), LocationUpdateAcceptType('ITSI attach'), SubscriberClass(5), ScchInformation(8), DistributionOn18thFrame(0), LaTimer('1 hour'), La(42)
 ```
 
 Enable the complete Layer 1, Lower MAC, Upper MAC, LLC, and Layer 3 trace with:

@@ -75,6 +75,15 @@ Optional compact ESI output:
 pytetra-dump --show-esi capture.bits
 ```
 
+Command-line arguments:
+
+| Argument | Meaning |
+| --- | --- |
+| `filename` | Required unpacked byte-per-bit input file |
+| `-h`, `--help` | Show command-line help and exit |
+| `--debug` | Show the complete Layer 1 through Layer 3 diagnostic trace |
+| `--show-esi` | Include encryption-mode 2/3 ESI chains in compact output |
+
 The source wrapper is equivalent:
 
 ```bash
@@ -96,13 +105,13 @@ reached by each permitted SSI chain.
 Layer-2-only example:
 
 ```text
-DL; MCC(204), MNC(1000), LA(1234); Layer 2 - MAC(MacResourcePdu); SSI(2345678), AddressType(1), EncryptionMode(3), RandomAccessFlag(0), LengthIndication(16)
+DL; MCC(204), MNC(9999), LA(42); Layer 2 - MAC(MacResourcePdu); ESI(424243), AddressType(1), EncryptionMode(3), RandomAccessFlag(0), LengthIndication(16)
 ```
 
 Layer-3 example:
 
 ```text
-DL; MCC(204), MNC(1000), LA(1234); Layer 3 - MM(DAuthentication); SSI(1234567), AuthenticationSubtype('D-AUTHENTICATION RESULT'), AuthenticationResult('Authentication successful'), MutualAuthenticationFlag('Mutual authentication requested'), ResponseValue(400645741)
+DL; MCC(204), MNC(9999), LA(42); Layer 3 - MM(DAuthentication); SSI(424242), AuthenticationSubtype('D-AUTHENTICATION RESULT'), AuthenticationResult('Authentication successful'), MutualAuthenticationFlag('Mutual authentication requested'), ResponseValue(400645741)
 ```
 
 `DL` means downlink. `Layer 2 - MAC` or `Layer 3 - MM` identifies the highest

@@ -8,6 +8,8 @@ MAC/LLC/MLE dispatch, and a subset of CMCE and MM PDUs.
 
 ## 1.0.0
 
+- replaced remaining captured MNC and location-area values with consistent
+  synthetic documentation and regression-fixture identities;
 - hid encryption-mode 2/3 ESI records from compact output by default, added
   `--show-esi`, retained all ESI records under `--debug`, and added automatic
   one-time security-context reporting;
