@@ -112,15 +112,11 @@ class MacLayerTestCase(unittest.TestCase):
         self.assertEqual(len(stack.user.summaries), 1)
         self.assertIn("ESI(1234567)", format_chain(stack.user.summaries[0]))
 
-    def test_security_context_reports_only_complete_changed_contexts(self):
+    def test_security_context_reports_first_complete_context_once(self):
         messages = []
         Logger.set_writer(messages.append)
         try:
-            stack = TetraStack(
-                RecordingUser,
-                debug=False,
-                show_security_context=True,
-            )
+            stack = TetraStack(RecordingUser, debug=False)
             stack.lower_mac.set_mobile_codes(204, 1000)
             stack.lower_mac.set_location_area(2333)
             self.assertEqual(messages, [])
@@ -139,18 +135,13 @@ class MacLayerTestCase(unittest.TestCase):
         self.assertEqual(messages, [
             "SecurityContext(MCC(204), MNC(1000), LA(2333), CCKId(77), "
             "EncryptionModeParity(odd))",
-            "SecurityContext(MCC(204), MNC(1000), LA(2346), CCKId(77), "
-            "EncryptionModeParity(odd))",
         ])
 
     def test_security_context_accepts_valid_zero_identifiers(self):
         messages = []
         Logger.set_writer(messages.append)
         try:
-            stack = TetraStack(
-                RecordingUser,
-                show_security_context=True,
-            )
+            stack = TetraStack(RecordingUser)
             stack.lower_mac.set_mobile_codes(0, 0)
             stack.lower_mac.set_location_area(0)
             stack.set_cck_id(2)

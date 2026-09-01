@@ -9,8 +9,8 @@ MAC/LLC/MLE dispatch, and a subset of CMCE and MM PDUs.
 ## 1.0.0
 
 - hid encryption-mode 2/3 ESI records from compact output by default, added
-  `--show-esi`, retained all ESI records under `--debug`, and added optional
-  security-context change reporting with `--show-security-context`;
+  `--show-esi`, retained all ESI records under `--debug`, and added automatic
+  one-time security-context reporting;
 - labelled MAC identities in compact and debug output as `ESI` for encryption
   modes 2 and 3, while retaining `SSI` for modes 0 and 1 and adding no
   identity-correlation assumptions;

@@ -12,14 +12,12 @@ from contextlib import contextmanager
 
 class TetraStack(object):
     def __init__(self, user_class=UserLayer, debug=False,
-                 debug_layer2=None, debug_llc=None, show_esi=False,
-                 show_security_context=False):
+                 debug_layer2=None, debug_llc=None, show_esi=False):
         Logger.reset()
         self.debug = bool(debug)
         self.show_esi = bool(show_esi)
-        self.show_security_context = bool(show_security_context)
         self.cck_id = None
-        self._last_reported_security_context = None
+        self._security_context_reported = False
         self._output_suppression_depth = 0
         self._burst_chains = None
         self._active_mac_chain = None
@@ -36,7 +34,7 @@ class TetraStack(object):
         self.user = user_class(self)
 
     def set_cck_id(self, cck_id):
-        """Store a validated CCK identifier and report a changed context."""
+        """Store a validated CCK identifier and report the complete context."""
         try:
             cck_id = int(cck_id)
         except (TypeError, ValueError):
@@ -47,8 +45,8 @@ class TetraStack(object):
         self.report_security_context()
 
     def report_security_context(self):
-        """Optionally emit each complete MCC/MNC/LA/CCK context once."""
-        if not self.show_security_context or self.cck_id is None:
+        """Emit the first complete MCC/MNC/LA/CCK context once per run."""
+        if self._security_context_reported or self.cck_id is None:
             return
         context = (
             self.lower_mac.mcc,
@@ -59,10 +57,9 @@ class TetraStack(object):
         if (
             not self.lower_mac.mobile_codes_known
             or not self.lower_mac.location_area_known
-            or context == self._last_reported_security_context
         ):
             return
-        self._last_reported_security_context = context
+        self._security_context_reported = True
         parity = "odd" if self.cck_id & 1 else "even"
         Logger.log(
             "SecurityContext(MCC(%d), MNC(%d), LA(%d), CCKId(%d), "

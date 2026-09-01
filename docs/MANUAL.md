@@ -69,10 +69,10 @@ Complete diagnostics:
 pytetra-dump --debug capture.bits
 ```
 
-Optional compact ESI and security-context output:
+Optional compact ESI output:
 
 ```bash
-pytetra-dump --show-esi --show-security-context capture.bits
+pytetra-dump --show-esi capture.bits
 ```
 
 The source wrapper is equivalent:
@@ -161,9 +161,9 @@ Encryption-mode 2/3 MAC resources are hidden from compact output by default.
 to LLC as clear text. The protected payload cannot be interpreted without the
 appropriate authorized security context.
 
-`--show-security-context` reports the complete context once MCC, MNC, LA and
-CCK-id are known, and again only when it changes. This diagnostic does not
-expose or derive the secret CCK.
+The complete context is reported automatically once per run as soon as MCC,
+MNC, LA and CCK-id are known. This diagnostic does not expose or derive the
+secret CCK.
 
 ## 9. Debug output
 

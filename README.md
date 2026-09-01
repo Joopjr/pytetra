@@ -73,8 +73,8 @@ in debug mode.
 
 Encryption-mode 2/3 ESI records are also hidden from compact output by
 default. Use `--show-esi` to include them without enabling the complete debug
-trace. Use `--show-security-context` to report a complete MCC/MNC/LA/CCK
-context when it first becomes known or changes.
+trace. The first complete MCC/MNC/LA/CCK security context is reported once per
+run as soon as it becomes known.
 
 Compact output also suppresses MAC-RESOURCE address types 2, 3 and 6, including
 the Layer-3 output causally decoded from those resources. `--debug` retains the
