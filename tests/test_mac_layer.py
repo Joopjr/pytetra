@@ -91,6 +91,77 @@ class MacLayerTestCase(unittest.TestCase):
                 other_label = "ESI" if expected_label == "SSI" else "SSI"
                 self.assertNotIn("%s(1234567)" % other_label, rendered)
 
+    def test_encrypted_identity_is_hidden_from_compact_output_by_default(self):
+        stack = TetraStack(RecordingUser, debug=False)
+        stack.begin_burst()
+        stack.upper_mac._handle_data_pdu(
+            self._resource_with_ssi(1234567, encryption_mode=3)
+        )
+        stack.finish_burst()
+
+        self.assertEqual(stack.user.summaries, [])
+
+    def test_show_esi_retains_encrypted_identity_in_compact_output(self):
+        stack = TetraStack(RecordingUser, debug=False, show_esi=True)
+        stack.begin_burst()
+        stack.upper_mac._handle_data_pdu(
+            self._resource_with_ssi(1234567, encryption_mode=3)
+        )
+        stack.finish_burst()
+
+        self.assertEqual(len(stack.user.summaries), 1)
+        self.assertIn("ESI(1234567)", format_chain(stack.user.summaries[0]))
+
+    def test_security_context_reports_only_complete_changed_contexts(self):
+        messages = []
+        Logger.set_writer(messages.append)
+        try:
+            stack = TetraStack(
+                RecordingUser,
+                debug=False,
+                show_security_context=True,
+            )
+            stack.lower_mac.set_mobile_codes(204, 1000)
+            stack.lower_mac.set_location_area(2333)
+            self.assertEqual(messages, [])
+
+            sysinfo = type("SysinfoProbe", (), {
+                "hyperframe_or_cck": 1,
+                "cck": 77,
+                "sdu": None,
+            })()
+            stack.upper_mac._handle_sysinfo_pdu(sysinfo)
+            stack.upper_mac._handle_sysinfo_pdu(sysinfo)
+            stack.lower_mac.set_location_area(2346)
+        finally:
+            Logger.set_writer(None)
+
+        self.assertEqual(messages, [
+            "SecurityContext(MCC(204), MNC(1000), LA(2333), CCKId(77), "
+            "EncryptionModeParity(odd))",
+            "SecurityContext(MCC(204), MNC(1000), LA(2346), CCKId(77), "
+            "EncryptionModeParity(odd))",
+        ])
+
+    def test_security_context_accepts_valid_zero_identifiers(self):
+        messages = []
+        Logger.set_writer(messages.append)
+        try:
+            stack = TetraStack(
+                RecordingUser,
+                show_security_context=True,
+            )
+            stack.lower_mac.set_mobile_codes(0, 0)
+            stack.lower_mac.set_location_area(0)
+            stack.set_cck_id(2)
+        finally:
+            Logger.set_writer(None)
+
+        self.assertEqual(messages, [
+            "SecurityContext(MCC(0), MNC(0), LA(0), CCKId(2), "
+            "EncryptionModeParity(even))",
+        ])
+
     def test_zero_ssi_hides_layer2_and_downstream_layer3(self):
         stack = TetraStack(RecordingUser, debug=False)
         stack.llc = Layer3Probe(stack)

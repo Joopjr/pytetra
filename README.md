@@ -71,6 +71,11 @@ pytetra-dump --debug recording.bits
 Raw MAC SDUs are intentionally omitted from compact output and remain visible
 in debug mode.
 
+Encryption-mode 2/3 ESI records are also hidden from compact output by
+default. Use `--show-esi` to include them without enabling the complete debug
+trace. Use `--show-security-context` to report a complete MCC/MNC/LA/CCK
+context when it first becomes known or changes.
+
 Compact output also suppresses MAC-RESOURCE address types 2, 3 and 6, including
 the Layer-3 output causally decoded from those resources. `--debug` retains the
 complete ETSI-named address fields: `SSI`, `EventLabel`, and `UsageMarker` as
@@ -112,9 +117,9 @@ Run the complete suite from the repository root:
 python3 -m unittest discover -s tests -v
 ```
 
-The release suite contains 75 tests covering PHY, channel decoding, MAC, LLC,
-MLE, CMCE, MM, SNDCP, Type 3/4 extensions, visibility filtering, and compact
-summary correlation.
+The release suite covers PHY, channel decoding, MAC, LLC, MLE, CMCE, MM,
+SNDCP, Type 3/4 extensions, visibility filtering, and compact summary
+correlation.
 
 ## Documentation
 

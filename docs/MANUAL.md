@@ -69,6 +69,12 @@ Complete diagnostics:
 pytetra-dump --debug capture.bits
 ```
 
+Optional compact ESI and security-context output:
+
+```bash
+pytetra-dump --show-esi --show-security-context capture.bits
+```
+
 The source wrapper is equivalent:
 
 ```bash
@@ -113,6 +119,9 @@ A concrete MAC resource starts a compact output chain only when its SSI is not:
 - zero;
 - the collective address `16777215` (`0xFFFFFF`).
 
+Encryption-mode 2/3 ESI chains are hidden from compact output unless
+`--show-esi` is selected. They always remain visible under `--debug`.
+
 SYNC, SYSINFO, ACCESS-ASSIGN, ACCESS-DEFINE, NULL, MAC-FRAG, MAC-END, Lower MAC,
 and LLC details remain available in debug mode. When one of these sources is
 hidden, causally downstream output is hidden with it; orphan Layer-3 lines are
@@ -147,10 +156,14 @@ its ETSI field name rather than being presented as an SSI or usage marker.
 
 ## 8. Encryption mode
 
-An `EncryptionMode(3)` MAC resource is shown in compact Layer-2 output, but its
-SDU is not passed to LLC as clear text. The MAC address remains useful for
-traffic observation; the protected payload cannot be interpreted without the
+Encryption-mode 2/3 MAC resources are hidden from compact output by default.
+`--show-esi` exposes their MAC identity as `ESI`, but their SDU is never passed
+to LLC as clear text. The protected payload cannot be interpreted without the
 appropriate authorized security context.
+
+`--show-security-context` reports the complete context once MCC, MNC, LA and
+CCK-id are known, and again only when it changes. This diagnostic does not
+expose or derive the secret CCK.
 
 ## 9. Debug output
 

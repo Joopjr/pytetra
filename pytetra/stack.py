@@ -12,9 +12,14 @@ from contextlib import contextmanager
 
 class TetraStack(object):
     def __init__(self, user_class=UserLayer, debug=False,
-                 debug_layer2=None, debug_llc=None):
+                 debug_layer2=None, debug_llc=None, show_esi=False,
+                 show_security_context=False):
         Logger.reset()
         self.debug = bool(debug)
+        self.show_esi = bool(show_esi)
+        self.show_security_context = bool(show_security_context)
+        self.cck_id = None
+        self._last_reported_security_context = None
         self._output_suppression_depth = 0
         self._burst_chains = None
         self._active_mac_chain = None
@@ -29,6 +34,40 @@ class TetraStack(object):
         self.cmce = Cmce(self)
         self.mm = Mm(self)
         self.user = user_class(self)
+
+    def set_cck_id(self, cck_id):
+        """Store a validated CCK identifier and report a changed context."""
+        try:
+            cck_id = int(cck_id)
+        except (TypeError, ValueError):
+            return
+        if not 0 <= cck_id <= 0xFFFF:
+            raise ValueError("CCK identifier must fit in 16 bits")
+        self.cck_id = cck_id
+        self.report_security_context()
+
+    def report_security_context(self):
+        """Optionally emit each complete MCC/MNC/LA/CCK context once."""
+        if not self.show_security_context or self.cck_id is None:
+            return
+        context = (
+            self.lower_mac.mcc,
+            self.lower_mac.mnc,
+            self.lower_mac.la,
+            self.cck_id,
+        )
+        if (
+            not self.lower_mac.mobile_codes_known
+            or not self.lower_mac.location_area_known
+            or context == self._last_reported_security_context
+        ):
+            return
+        self._last_reported_security_context = context
+        parity = "odd" if self.cck_id & 1 else "even"
+        Logger.log(
+            "SecurityContext(MCC(%d), MNC(%d), LA(%d), CCKId(%d), "
+            "EncryptionModeParity(%s))" % (context + (parity,))
+        )
 
     @property
     def output_suppressed(self):
@@ -65,6 +104,12 @@ class TetraStack(object):
             return
         chains = self._burst_chains
         self._burst_chains = None
+        if not self.show_esi:
+            chains = [
+                chain for chain in chains
+                if getattr(chain.get("layer2"), "encryption_mode", None)
+                not in (2, 3)
+            ]
         if chains:
             self.user.burst_summary_indication(chains)
 

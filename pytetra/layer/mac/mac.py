@@ -42,6 +42,8 @@ class LowerMac(Layer, UpperTpSap):
         self.mcc = 0
         self.mnc = 0
         self.la = 0
+        self.mobile_codes_known = False
+        self.location_area_known = False
         self.colour_code = 0
 
         # Indicates that BKN2 was stolen according to the MAC signalling.
@@ -175,13 +177,17 @@ class LowerMac(Layer, UpperTpSap):
         if not 0 <= mnc <= 0x3FFF:
             raise ValueError("MNC must fit in 14 bits")
 
-        if mcc == self.mcc and mnc == self.mnc:
+        unchanged = mcc == self.mcc and mnc == self.mnc
+        self.mobile_codes_known = True
+        if unchanged:
+            self.stack.report_security_context()
             return
 
         self.mcc = mcc
         self.mnc = mnc
 
         self._update_extended_colour_code()
+        self.stack.report_security_context()
 
     def set_colour_code(self, colour_code):
         """
@@ -213,6 +219,8 @@ class LowerMac(Layer, UpperTpSap):
             raise ValueError("LA must fit in 14 bits")
 
         self.la = la
+        self.location_area_known = True
+        self.stack.report_security_context()
 
     def _update_extended_colour_code(self):
         """
@@ -865,6 +873,9 @@ class UpperMac(Layer, UpperTmvSap):
         """
         Forward SYSINFO SDU to LLC.
         """
+        if getattr(pdu, "hyperframe_or_cck", 0) == 1:
+            self.stack.set_cck_id(getattr(pdu, "cck", None))
+
         # SYSINFO is diagnostic-only in normal output. Keep D-MLE-SYSINFO
         # under the same visibility context as its hidden Upper-MAC source.
         with self.stack.output_context(True):

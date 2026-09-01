@@ -45,12 +45,27 @@ def build_argument_parser():
             "Layer 3 diagnostic trace"
         ),
     )
+    parser.add_argument(
+        "--show-esi",
+        action="store_true",
+        help="include encryption-mode 2/3 ESI records in compact output",
+    )
+    parser.add_argument(
+        "--show-security-context",
+        action="store_true",
+        help="report MCC/MNC/LA/CCK context changes",
+    )
     return parser
 
 
 def main(argv=None):
     arguments = build_argument_parser().parse_args(argv)
-    stack = TetraStack(ConsoleUserLayer, debug=arguments.debug)
+    stack = TetraStack(
+        ConsoleUserLayer,
+        debug=arguments.debug,
+        show_esi=arguments.show_esi,
+        show_security_context=arguments.show_security_context,
+    )
     stack.phy.feed_from_file(arguments.filename)
     return 0
 
