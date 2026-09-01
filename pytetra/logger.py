@@ -4,6 +4,7 @@ import re
 
 def field_name(name):
     aliases = {
+        "esi": "ESI",
         "ssi": "SSI",
         "min_rxlevel": "MinRxLevel",
     }

@@ -8,9 +8,9 @@ MAC/LLC/MLE dispatch, and a subset of CMCE and MM PDUs.
 
 ## 1.0.0
 
-- labelled the compact MAC identity as `ESI` for encryption modes 2 and 3,
-  while retaining `SSI` for modes 0 and 1 and adding no identity-correlation
-  assumptions;
+- labelled MAC identities in compact and debug output as `ESI` for encryption
+  modes 2 and 3, while retaining `SSI` for modes 0 and 1 and adding no
+  identity-correlation assumptions;
 - decoded the standardized D-CK CHANGE DEMAND, D-DISABLE, and D-ENABLE
   security-management fields instead of exposing their complete payload as
   undifferentiated raw bits;

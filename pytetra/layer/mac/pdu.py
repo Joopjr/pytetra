@@ -8,6 +8,7 @@ from pytetra.pdu.pdu import (
     ConditionalField,
     Bits,
 )
+from pytetra.logger import format_record
 
 
 def _remove_fill_bits(sdu):
@@ -169,6 +170,17 @@ class MacResourcePdu(Pdu):
         ConditionalField(UIntField("monitoring_pattern", 2), lambda pkt: pkt.channel_allocation_flag),
         ConditionalField(UIntField("frame_18_monitoring_pattern", 2), lambda pkt: pkt.channel_allocation_flag and pkt.monitoring_pattern == 0),
     ]
+
+    def __repr__(self):
+        identity_is_encrypted = self.encryption_mode in (2, 3)
+        fields = (
+            (
+                "esi" if identity_is_encrypted and key == "ssi" else key,
+                value,
+            )
+            for key, value in self.fields.items()
+        )
+        return format_record(self.__class__.__name__, fields)
 
     def __init__(self, bits):
         # Preserve the number of bits initially available to this MAC PDU.

@@ -75,6 +75,22 @@ class MacLayerTestCase(unittest.TestCase):
                 other_label = "ESI" if expected_label == "SSI" else "SSI"
                 self.assertNotIn("%s(1234567)" % other_label, rendered)
 
+    def test_debug_identity_label_follows_encryption_mode(self):
+        for encryption_mode, expected_label in (
+            (0, "SSI"),
+            (1, "SSI"),
+            (2, "ESI"),
+            (3, "ESI"),
+        ):
+            with self.subTest(encryption_mode=encryption_mode):
+                pdu = self._resource_with_ssi(
+                    1234567, encryption_mode=encryption_mode
+                )
+                rendered = repr(pdu)
+                self.assertIn("%s(1234567)" % expected_label, rendered)
+                other_label = "ESI" if expected_label == "SSI" else "SSI"
+                self.assertNotIn("%s(1234567)" % other_label, rendered)
+
     def test_zero_ssi_hides_layer2_and_downstream_layer3(self):
         stack = TetraStack(RecordingUser, debug=False)
         stack.llc = Layer3Probe(stack)
