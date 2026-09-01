@@ -84,7 +84,8 @@ class ConvolutionalDecoder(object):
         values = np.asarray(b3)
         oldcost = np.full(self.num_states, float(self.MAX), dtype=np.float64)
         oldcost[0] = 0.0
-        history = []
+        history = np.empty((len(values), self.num_states), dtype=np.int8)
+        history_length = 0
         soft = len(values) > 0 and not np.issubdtype(values.dtype, np.integer)
 
         position = 0
@@ -105,18 +106,19 @@ class ConvolutionalDecoder(object):
             second = oldcost[self._predecessor_b] + metric_b
             choose_first = first < second
             oldcost = np.where(choose_first, first, second)
-            history.append(np.where(
+            history[history_length] = np.where(
                 choose_first, self._predecessor_a, self._predecessor_b
-            ).astype(np.int8))
+            )
+            history_length += 1
             if position >= len(values):
                 break
 
         # We have 4 tail bits to 0, so we should end in state 0
         state = 0
-        b2 = [0] * len(history)
+        b2 = [0] * history_length
 
         # Walk the history backward to get the type-2 bits
-        for t in range(len(history) - 1, - 1, -1):
+        for t in range(history_length - 1, -1, -1):
             oldstate = int(history[t][state])
             b2[t] = self.next_state[oldstate].index(state)
             state = oldstate

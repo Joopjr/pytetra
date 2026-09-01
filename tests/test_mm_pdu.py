@@ -1,10 +1,37 @@
 import unittest
 from pytetra.pdu.pdu import Bits
-from pytetra.layer.mm.pdu import MmPdu, DLocationUpdateAccept
+from pytetra.layer.mm.pdu import (
+    DCkChangeDemand,
+    DDisable,
+    DEnable,
+    DLocationUpdateAccept,
+    DMmFunctionNotSupported,
+    MmPdu,
+)
 from pytetra.layer.mm.elements import *
 
 
 class MmTestCase(unittest.TestCase):
+    def test_security_management_pdus_decode_standard_fields(self):
+        ck = MmPdu.parse(Bits(
+            "0010" "1" "10" "001" "0001001000110100" "10"
+        ))
+        self.assertIsInstance(ck, DCkChangeDemand)
+        self.assertIn("CckId(4660)", repr(ck))
+        self.assertIn("TimeType('Immediate')", repr(ck))
+
+        disable = MmPdu.parse(Bits("0011" "0" "0" "0" "0" "0" "0"))
+        self.assertIsInstance(disable, DDisable)
+        self.assertIn("DisablingType('Temporary')", repr(disable))
+
+        enable = MmPdu.parse(Bits("0100" "1" "0" "0" "0" "0"))
+        self.assertIsInstance(enable, DEnable)
+        self.assertIn("IntentConfirm('Confirmation')", repr(enable))
+
+    def test_function_not_supported_has_standardized_pdu_name(self):
+        pdu = MmPdu.parse(Bits("1111" "1010"))
+        self.assertIsInstance(pdu, DMmFunctionNotSupported)
+
     def test_dlocationupdateaccept(self):
         bits = '0101011100000101010000011101000110111000001001100000010111000001110100110010111011000100'
         #       ****                                                                                      PDU type = 5 (D-LOCATION UPDATE ACCEPT)

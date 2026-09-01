@@ -8,6 +8,16 @@ MAC/LLC/MLE dispatch, and a subset of CMCE and MM PDUs.
 
 ## 1.0.0
 
+- decoded the standardized D-CK CHANGE DEMAND, D-DISABLE, and D-ENABLE
+  security-management fields instead of exposing their complete payload as
+  undifferentiated raw bits;
+- identified discriminator 15 as D-MM FUNCTION NOT SUPPORTED rather than an
+  unknown or decoder-unsupported PDU;
+- aligned MM source references with ETSI EN 300 392-2 V3.8.1 and removed
+  obsolete parser diagnostics;
+- preallocated Viterbi path history while preserving soft-decision metrics
+  and NumPy float32 confidence handling;
+
 - vectorized all sixteen Viterbi trellis states with NumPy to remove the
   real-time convolutional-decoder bottleneck without weakening soft-decision
   error correction;

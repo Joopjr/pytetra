@@ -4,7 +4,7 @@
 TETRA Mobility Management (MM) downlink PDU decoder.
 
 Basis:
-    ETSI EN 300 392-2 V3.4.1
+    ETSI EN 300 392-2 V3.8.1
     clause 16.9 / 16.10
 
 DOWNLINK ONLY.
@@ -73,25 +73,12 @@ class MmPduBase(Pdu):
     @classmethod
     def _decode_type2(cls, pdu, bits):
         for field in cls.type2:
-            before = len(bits)
-
             if len(bits) < 1:
                 raise PduDecodingException(
                     "Missing Type 2 presence bit"
                 )
 
-            presence = bits.bits[0]
-
-            element = getattr(field, "element", None)
-            element_name = getattr(
-                element,
-                "name",
-                getattr(element, "__name__", str(element)),
-            )
-
             field.decode(pdu, bits)
-
-            after = len(bits)
 
     @classmethod
     def _type34_map(cls):
@@ -346,7 +333,7 @@ class MmReservedPdu(MmRawPdu):
     name = "MM RESERVED PDU"
 
 
-class MmUnsupportedPdu(MmRawPdu):
+class DMmFunctionNotSupported(MmRawPdu):
     name = "MM PDU/FUNCTION NOT SUPPORTED"
 
 
@@ -650,8 +637,54 @@ class DAuthentication(MmPduBase):
 # Security definition is in EN 300 392-7.
 # ============================================================================
 
-class DCkChangeDemand(MmRawPdu):
+class DCkChangeDemand(MmPduBase):
     name = "D-CK CHANGE DEMAND"
+
+    @classmethod
+    def parse(cls, bits):
+        pdu = cls()
+        pdu.add_field(PduType.parse(bits))
+        pdu.add_field(AcknowledgementFlag.parse(bits))
+        pdu.add_field(ChangeOfSecurityClass.parse(bits))
+        key_type = KeyChangeType.parse(bits)
+        pdu.add_field(key_type)
+
+        if key_type.value == "SCK":
+            pdu.add_field(SckUse.parse(bits))
+            count = NumberOfScksChanged.parse(bits)
+            pdu.add_field(count)
+            if count.value == 0:
+                pdu.add_field(SckSubsetGroupingType.parse(bits))
+                pdu.add_field(SckSubsetNumber.parse(bits))
+                pdu.add_field(SckVersionNumber.parse(bits))
+            else:
+                for _ in range(count.value):
+                    pdu.add_field(SckData.parse(bits))
+        elif key_type.value == "CCK":
+            pdu.add_field(CckId.parse(bits))
+        elif key_type.value == "GCK":
+            count = NumberOfGcksChanged.parse(bits)
+            pdu.add_field(count)
+            for _ in range(count.value):
+                pdu.add_field(GckData.parse(bits))
+        elif key_type.value == "Class 3 CCK/GCK activation":
+            pdu.add_field(CckId.parse(bits))
+            pdu.add_field(GckVersionNumber.parse(bits))
+        elif key_type.value == "All GCKs":
+            pdu.add_field(GckVersionNumber.parse(bits))
+
+        time_type = TimeType.parse(bits)
+        pdu.add_field(time_type)
+        if time_type.value == "Absolute IV":
+            pdu.add_field(SlotNumber.parse(bits))
+            pdu.add_field(FrameNumber.parse(bits))
+            pdu.add_field(MultiframeNumber.parse(bits))
+            pdu.add_field(HyperframeNumber.parse(bits))
+        elif time_type.value == "Network time":
+            pdu.add_field(NetworkTime.parse(bits))
+        if len(bits):
+            pdu.add_field(MmTrailingBits.parse(bits, len(bits)))
+        return pdu
 
 
 # ============================================================================
@@ -659,8 +692,45 @@ class DCkChangeDemand(MmRawPdu):
 # Security definition is in EN 300 392-7.
 # ============================================================================
 
-class DDisable(MmRawPdu):
+class _DEnableDisableBase(MmPduBase):
+    equipment_flag = None
+    subscription_flag = None
+    has_disabling_type = False
+
+    @classmethod
+    def parse(cls, bits):
+        pdu = cls()
+        pdu.add_field(PduType.parse(bits))
+        pdu.add_field(IntentConfirm.parse(bits))
+        if cls.has_disabling_type:
+            pdu.add_field(DisablingType.parse(bits))
+        equipment = cls.equipment_flag.parse(bits)
+        pdu.add_field(equipment)
+        if equipment.value:
+            pdu.add_field(TetraEquipmentIdentity.parse(bits))
+        subscription = cls.subscription_flag.parse(bits)
+        pdu.add_field(subscription)
+        if subscription.value:
+            pdu.add_field(AddressExtension.parse(bits))
+            pdu.add_field(Ssi.parse(bits))
+
+        if len(bits):
+            authentication_present = bits.read_int(1)
+            if authentication_present:
+                pdu.add_field(RandomChallenge.parse(bits))
+                pdu.add_field(RandomSeed.parse(bits))
+        if len(bits):
+            cls._decode_type34(pdu, bits)
+        if len(bits):
+            pdu.add_field(MmTrailingBits.parse(bits, len(bits)))
+        return pdu
+
+
+class DDisable(_DEnableDisableBase):
     name = "D-DISABLE"
+    equipment_flag = EquipmentDisableFlag
+    subscription_flag = SubscriptionDisableFlag
+    has_disabling_type = True
 
 
 # ============================================================================
@@ -668,8 +738,10 @@ class DDisable(MmRawPdu):
 # Security definition is in EN 300 392-7.
 # ============================================================================
 
-class DEnable(MmRawPdu):
+class DEnable(_DEnableDisableBase):
     name = "D-ENABLE"
+    equipment_flag = EquipmentEnableFlag
+    subscription_flag = SubscriptionEnableFlag
 
 
 # ============================================================================
@@ -1001,7 +1073,7 @@ class MmPdu:
         0xC: DMmStatus,
         0xD: MmReservedPdu,
         0xE: MmReservedPdu,
-        0xF: MmUnsupportedPdu,
+        0xF: DMmFunctionNotSupported,
     }
 
     @classmethod

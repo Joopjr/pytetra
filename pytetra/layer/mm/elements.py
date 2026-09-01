@@ -4,7 +4,7 @@
 TETRA Mobility Management (MM) information elements.
 
 Basis:
-    ETSI EN 300 392-2 V3.4.1
+    ETSI EN 300 392-2 V3.8.1
     clause 16.10
 
 This module implements downlink MM only.
@@ -42,6 +42,115 @@ class FixedBits(IntElement):
     Subclasses define 'length'.
     """
     pass
+
+
+class AcknowledgementFlag(EnumElement):
+    name = "Acknowledgement"
+    length = 1
+    enum = ["Not requested", "Requested"]
+
+
+class ChangeOfSecurityClass(EnumElement):
+    name = "Change of security class"
+    length = 2
+    enum = ["No change", "Class 1", "Class 2", "Class 3"]
+
+
+class KeyChangeType(EnumElement):
+    name = "Key change type"
+    length = 3
+    enum = ["SCK", "CCK", "GCK", "Class 3 CCK/GCK activation",
+            "All GCKs", "No cipher key", "Reserved", "Reserved"]
+
+
+class SckUse(FixedBits):
+    name, length = "SCK use", 1
+
+
+class NumberOfScksChanged(FixedBits):
+    name, length = "Number of SCKs changed", 4
+
+
+class SckSubsetGroupingType(FixedBits):
+    name, length = "SCK subset grouping type", 4
+
+
+class SckSubsetNumber(FixedBits):
+    name, length = "SCK subset number", 5
+
+
+class SckVersionNumber(FixedBits):
+    name, length = "SCK version number", 16
+
+
+class SckData(FixedBits):
+    name, length = "SCK data", 21
+
+
+class CckId(FixedBits):
+    name, length = "CCK identifier", 16
+
+
+class NumberOfGcksChanged(FixedBits):
+    name, length = "Number of GCKs changed", 4
+
+
+class GckData(FixedBits):
+    name, length = "GCK data", 32
+
+
+class GckVersionNumber(FixedBits):
+    name, length = "GCK version number", 16
+
+
+class TimeType(EnumElement):
+    name = "Time type"
+    length = 2
+    enum = ["Absolute IV", "Network time", "Immediate", "Currently in use"]
+
+
+class SlotNumber(FixedBits):
+    name, length = "Slot number", 2
+
+
+class HyperframeNumber(FixedBits):
+    name, length = "Hyperframe number", 16
+
+
+class NetworkTime(FixedBits):
+    name, length = "Network time", 48
+
+
+class IntentConfirm(EnumElement):
+    name = "Intent or confirmation"
+    length = 1
+    enum = ["Intent", "Confirmation"]
+
+
+class DisablingType(EnumElement):
+    name = "Disabling type"
+    length = 1
+    enum = ["Temporary", "Permanent"]
+
+
+class EquipmentDisableFlag(FixedBits):
+    name, length = "Equipment disable", 1
+
+
+class EquipmentEnableFlag(FixedBits):
+    name, length = "Equipment enable", 1
+
+
+class SubscriptionDisableFlag(FixedBits):
+    name, length = "Subscription disable", 1
+
+
+class SubscriptionEnableFlag(FixedBits):
+    name, length = "Subscription enable", 1
+
+
+class TetraEquipmentIdentity(FixedBits):
+    name, length = "TETRA equipment identity", 60
 
 
 # ============================================================================
