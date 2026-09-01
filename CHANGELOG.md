@@ -8,6 +8,9 @@ MAC/LLC/MLE dispatch, and a subset of CMCE and MM PDUs.
 
 ## 1.0.0
 
+- aligned the README and manual structure with PyTetra-Live, including direct
+  source execution, a compact option table, ESI filtering, and a future uplink
+  roadmap note;
 - replaced remaining captured MNC and location-area values with consistent
   synthetic documentation and regression-fixture identities;
 - hid encryption-mode 2/3 ESI records from compact output by default, added

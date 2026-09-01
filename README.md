@@ -41,7 +41,7 @@ python3 -m pip install --upgrade pip
 python3 -m pip install .
 ```
 
-## Usage
+## Running the decoder
 
 After installation:
 
@@ -56,8 +56,27 @@ and `-h`/`--help` for concise usage information.
 From a source checkout without installation:
 
 ```bash
-PYTHONPATH=. python3 examples/dump.py recording.bits
+PYTHONPATH=. python3 -m pytetra.cli recording.bits
 ```
+
+The equivalent lightweight example wrapper is
+`PYTHONPATH=. python3 examples/dump.py recording.bits`.
+
+## Required input
+
+The single required argument is an unpacked `.bits` filename containing one
+byte (`0x00` or `0x01`) per bit and aligned 510-bit continuous-downlink bursts.
+
+## Useful options
+
+| Option | Behavior |
+|---|---|
+| `-h`, `--help` | Show command-line help and exit |
+| `filename` | Decode this required unpacked byte-per-bit input file |
+| `--debug` | Show the complete Layer 1 through Layer 3 diagnostic trace |
+| `--show-esi` | Include encryption-mode 2/3 ESI chains in compact output |
+
+## Output
 
 Normal output selects the highest decoded layer for each permitted SSI chain:
 
@@ -115,6 +134,12 @@ The corresponding downstream LLC and Layer 3 output is suppressed as one
 causal chain. General SYNC and SYSINFO traffic is also diagnostic-only. All of
 it remains available with `--debug`.
 
+MAC resources using encryption modes 2 and 3 carry an ESI instead of a clear
+SSI. These ESI chains are hidden from compact output by default because they
+must not be interpreted as clear subscriber identities. `--show-esi` exposes
+them with the `ESI` label, while `--debug` always retains their complete
+diagnostic representation.
+
 ## Tests
 
 Run the complete suite from the repository root:
@@ -132,7 +157,6 @@ correlation.
 - [User and developer manual](docs/MANUAL.md)
 - [Protocol architecture](docs/ARCHITECTURE.md)
 - [Implementation status](docs/IMPLEMENTATION_STATUS.md)
-- [Publishing on GitHub](docs/PUBLISHING.md)
 - [Contributing](CONTRIBUTING.md)
 - [Changelog](CHANGELOG.md)
 
@@ -146,6 +170,11 @@ correlation.
 - SNDCP SN-UNITDATA reassembly is implemented, but no SNDCP traffic occurs in
   the supplied regression recording;
 - direct SDR, IQ, and SpyServer input are not included in this release.
+
+Adding standards-compliant uplink decoding is a desirable extension for a
+later release. It must remain separate from the current downlink path until its
+burst formats, channel processing, and protocol behavior have equivalent test
+coverage.
 
 See [Implementation status](docs/IMPLEMENTATION_STATUS.md) for exact coverage.
 

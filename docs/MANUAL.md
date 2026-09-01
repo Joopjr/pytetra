@@ -63,6 +63,12 @@ Compact output:
 pytetra-dump capture.bits
 ```
 
+Run directly from a source checkout without installation:
+
+```bash
+PYTHONPATH=. python3 -m pytetra.cli capture.bits
+```
+
 Complete diagnostics:
 
 ```bash
@@ -75,12 +81,14 @@ Optional compact ESI output:
 pytetra-dump --show-esi capture.bits
 ```
 
+### Useful options
+
 Command-line arguments:
 
 | Argument | Meaning |
 | --- | --- |
-| `filename` | Required unpacked byte-per-bit input file |
 | `-h`, `--help` | Show command-line help and exit |
+| `filename` | Required unpacked byte-per-bit input file |
 | `--debug` | Show the complete Layer 1 through Layer 3 diagnostic trace |
 | `--show-esi` | Include encryption-mode 2/3 ESI chains in compact output |
 
@@ -240,3 +248,9 @@ fields as corruption.
 Use the decoder only where reception and analysis are lawful and authorized.
 Do not publish subscriber identities or intercepted communications without a
 valid legal and ethical basis.
+
+## 14. Future uplink support
+
+Standards-compliant uplink decoding is a desirable addition for a later
+release. It is intentionally outside version 1.0.0 and should be introduced
+only with separate uplink burst, channel-decoding, and protocol tests.

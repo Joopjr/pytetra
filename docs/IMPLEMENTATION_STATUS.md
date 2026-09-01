@@ -2,6 +2,9 @@
 
 Baseline: ETSI EN 300 392-2 V3.8.1 (2016-08), downlink only.
 
+Uplink processing is not implemented in 1.0.0. Adding it with independent PHY,
+MAC, and protocol regression coverage is a desired later-version extension.
+
 | Area | Status | Notes |
 | --- | --- | --- |
 | Physical layer | Implemented | Four downlink burst classes; aligned 510/492-bit modes |
