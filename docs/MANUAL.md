@@ -1,0 +1,256 @@
+# PyTetra Downlink manual
+
+## 1. Purpose
+
+PyTetra Downlink decodes an already-demodulated TETRA downlink bit stream. The
+processing path is:
+
+```text
+unpacked bits → physical burst → Lower MAC → Upper MAC → LLC → MLE
+                                                       ├→ CMCE
+                                                       ├→ MM
+                                                       └→ SNDCP
+```
+
+The implementation baseline is ETSI EN 300 392-2 V3.8.1 (2016-08). Uplink,
+voice decoding, key management, and decryption are outside the current scope.
+
+## 2. Installation
+
+Create an isolated Python environment and install the repository:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install --upgrade pip
+python3 -m pip install .
+```
+
+Verify the command:
+
+```bash
+pytetra-dump --help
+```
+
+No non-standard runtime dependency is required.
+
+## 3. Input format
+
+The CLI accepts one positional input file. It is not a packed bit file: every
+bit occupies one complete byte.
+
+| Logical bit | Stored byte |
+| ---: | ---: |
+| 0 | `0x00` |
+| 1 | `0x01` |
+
+The default stream consists of aligned 510-bit continuous-downlink records.
+The parser rejects any byte other than zero or one and never shifts inside a
+rejected aligned record to manufacture a valid burst.
+
+The library can also construct `Phy(..., burst_bits=492)` for discontinuous
+downlink records. The command-line interface currently uses the standard
+510-bit continuous setting.
+
+IQ, WAV, SDR, and SpyServer streams are not input formats for this release.
+They require an IQ demodulator that produces the byte-per-bit contract above.
+
+## 4. Running the decoder
+
+Compact output:
+
+```bash
+pytetra-dump capture.bits
+```
+
+Run directly from a source checkout without installation:
+
+```bash
+PYTHONPATH=. python3 -m pytetra.cli capture.bits
+```
+
+Complete diagnostics:
+
+```bash
+pytetra-dump --debug capture.bits
+```
+
+Optional compact ESI output:
+
+```bash
+pytetra-dump --show-esi capture.bits
+```
+
+### Useful options
+
+Command-line arguments:
+
+| Argument | Meaning |
+| --- | --- |
+| `-h`, `--help` | Show command-line help and exit |
+| `filename` | Required unpacked byte-per-bit input file |
+| `--debug` | Show the complete Layer 1 through Layer 3 diagnostic trace |
+| `--show-esi` | Include encryption-mode 2/3 ESI chains in compact output |
+
+The source wrapper is equivalent:
+
+```bash
+PYTHONPATH=. python3 examples/dump.py capture.bits
+```
+
+The included synthetic 200-burst example can be decoded without installation:
+
+```bash
+PYTHONPATH=. python3 examples/dump.py examples/example.bits
+```
+
+## 5. Compact output
+
+Compact mode correlates all synchronously decoded PDUs with their originating
+MAC resource for the duration of a physical burst. It emits the highest layer
+reached by each permitted SSI chain.
+
+Layer-2-only example:
+
+```text
+DL; MCC(204), MNC(9999), LA(42); Layer 2 - MAC(MacResourcePdu); ESI(424243), AddressType(1), EncryptionMode(3), RandomAccessFlag(0), LengthIndication(16)
+```
+
+Layer-3 example:
+
+```text
+DL; MCC(204), MNC(9999), LA(42); Layer 3 - MM(DAuthentication); SSI(424242), AuthenticationSubtype('D-AUTHENTICATION RESULT'), AuthenticationResult('Authentication successful'), MutualAuthenticationFlag('Mutual authentication requested'), ResponseValue(400645741)
+```
+
+`DL` means downlink. `Layer 2 - MAC` or `Layer 3 - MM` identifies the highest
+visible decoder. The PDU class is shown in parentheses, followed by its fields.
+
+Raw MAC SDU bits are excluded from compact output because they are transport
+payload rather than a user-readable semantic field.
+
+## 6. Visibility rules
+
+A concrete MAC resource starts a compact output chain only when its SSI is not:
+
+- absent (`None`);
+- zero;
+- the collective address `16777215` (`0xFFFFFF`).
+
+Encryption-mode 2/3 ESI chains are hidden from compact output unless
+`--show-esi` is selected. They always remain visible under `--debug`.
+
+SYNC, SYSINFO, ACCESS-ASSIGN, ACCESS-DEFINE, NULL, MAC-FRAG, MAC-END, Lower MAC,
+and LLC details remain available in debug mode. When one of these sources is
+hidden, causally downstream output is hidden with it; orphan Layer-3 lines are
+not printed.
+
+If one physical burst contains several genuinely addressed MAC chains, each
+chain receives its own line so no addressed protocol data is discarded.
+
+## 7. MAC-RESOURCE address fields
+
+The MAC-RESOURCE parser follows the address-type field-presence table in
+ETSI EN 300 392-2. The value selects which keys physically follow the header:
+
+| Address type | Fields | Use |
+| ---: | --- | --- |
+| 0 | none | No address fields |
+| 1 | 24-bit SSI | SSI addressing |
+| 2 | 10-bit event label | Event-label addressing |
+| 3 | 24-bit SSI | SSI-bearing address form |
+| 4 | 24-bit SSI | SSI-bearing address form |
+| 5 | 24-bit SSI and 10-bit event label | Combined addressing |
+| 6 | 24-bit SSI and 6-bit usage marker | SSI tied to a usage context |
+| 7 | 24-bit SSI and 10-bit event label | Combined addressing |
+
+The usage marker helps associate the addressed subscriber with a physical
+channel allocation. It does not replace the SSI.
+
+Normal compact output intentionally suppresses address types 2, 3 and 6 and
+their causally downstream Layer-3 output. They remain fully visible with
+`--debug`. For visible combined address forms, `EventLabel` is printed under
+its ETSI field name rather than being presented as an SSI or usage marker.
+
+## 8. Encryption mode
+
+Encryption-mode 2/3 MAC resources are hidden from compact output by default.
+`--show-esi` exposes their MAC identity as `ESI`, but their SDU is never passed
+to LLC as clear text. The protected payload cannot be interpreted without the
+appropriate authorized security context.
+
+The complete context is reported automatically once per run as soon as MCC,
+MNC, LA and CCK-id are known. This diagnostic does not expose or derive the
+secret CCK.
+
+## 9. Debug output
+
+`--debug` restores the detailed processing trace:
+
+- physical burst type, training sequences and errors;
+- Lower-MAC channel choice, block sizes and CRC result;
+- all Upper-MAC PDU fields, including raw SDUs;
+- LLC parsing, sequence handling and delivery;
+- MLE, CMCE, MM, and SNDCP PDU representations;
+- decoder rejection reasons and end-of-stream summaries.
+
+Debug mode is intentionally verbose and is intended for protocol diagnosis,
+not routine subscriber-level summaries.
+
+## 10. Interpreting reliability
+
+A displayed SSI came from a channel block whose Lower-MAC CRC passed. A valid
+CRC, correct MAC length, plausible address type, and repeated coherent Layer-3
+procedures together provide strong evidence that the SSI bits were received
+correctly. A single observation does not prove that an identity is assigned to
+a currently registered device.
+
+The decoder drops CRC-failed channel blocks instead of attempting to extract
+addresses or higher-layer messages from them.
+
+## 11. Library use
+
+Applications can instantiate `TetraStack` with a custom `UserLayer`. Override:
+
+- `pdu_indication(layer, pdu)` for the detailed PDU stream;
+- `burst_summary_indication(chains)` for compact correlated chains;
+- `speech_indication(block, bfi, marker)` for undecoded user-plane speech
+  blocks.
+
+`examples/dump.py` is deliberately a thin wrapper around `pytetra.cli:main` so
+installed and source-checkout behavior cannot drift apart.
+
+## 12. Troubleshooting
+
+### Input rejected immediately
+
+Confirm that the file contains byte values zero and one, not ASCII characters
+`"0"` and `"1"`, packed bits, complex IQ samples, or a WAV header.
+
+### No compact output
+
+Run with `--debug`. The recording may contain only synchronization, system
+information, collective SSI traffic, CRC failures, or encrypted/unaddressed
+resources filtered from compact mode.
+
+### Layer 2 appears but Layer 3 does not
+
+Common reasons are an empty SDU, air-interface encryption, a control-only MAC
+resource, or an LLC/PDU type that carries no Layer-3 payload.
+
+### A Layer-3 PDU is retained as raw data
+
+Some assigned PDU bodies are named and safely retained without semantic field
+guessing. Consult `IMPLEMENTATION_STATUS.md` before treating absence of decoded
+fields as corruption.
+
+## 13. Responsible use
+
+Use the decoder only where reception and analysis are lawful and authorized.
+Do not publish subscriber identities or intercepted communications without a
+valid legal and ethical basis.
+
+## 14. Future uplink support
+
+Standards-compliant uplink decoding is a desirable addition for a later
+release. It is intentionally outside version 1.0.0 and should be introduced
+only with separate uplink burst, channel-decoding, and protocol tests.

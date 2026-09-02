@@ -1,7 +1,8 @@
 import unittest
+import numpy as np
 from pytetra.layer.mac.decoder import SCHFDecoder, BSCHDecoder, AACHDecoder, BNCHDecoder, NormalTchsDecoder, StealingTchsDecoder
 
-f = lambda l: map(int, l)
+f = lambda l: list(map(int, l))
 
 
 class DecoderTestCase(object):
@@ -32,6 +33,29 @@ class BSCHTestCase(DecoderTestCase, unittest.TestCase):
         self.b1 = f('000100000111010001000100000000000000000010000000000000110001')
         self.crc_pass = True
         self.decoder = BSCHDecoder()
+
+    def test_soft_viterbi_recovers_low_confidence_channel_errors(self):
+        damaged = self.b5[:]
+        damaged[4] ^= 1
+        damaged[15] ^= 1
+        confidence = [1.0 if bit else -1.0 for bit in damaged]
+        confidence[4] *= 0.05
+        confidence[15] *= 0.05
+
+        unused_hard_bits, hard_crc = self.decoder.decode(damaged)
+        recovered, soft_crc = self.decoder.decode(damaged, confidence)
+
+        self.assertFalse(hard_crc)
+        self.assertTrue(soft_crc)
+        self.assertEqual(recovered, self.b1)
+
+    def test_numpy_soft_values_follow_soft_decision_path(self):
+        confidence = np.asarray(
+            [1.0 if bit else -1.0 for bit in self.b5], dtype=np.float32
+        )
+        recovered, crc_pass = self.decoder.decode(self.b5, confidence)
+        self.assertTrue(crc_pass)
+        self.assertEqual(recovered, self.b1)
 
 
 class BNCHTestCase(DecoderTestCase, unittest.TestCase):

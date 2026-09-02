@@ -1,17 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-from pytetra.stack import TetraStack
-from pytetra.layer.user import UserLayer
-import sys
+"""Source-checkout wrapper for the installed pytetra-dump command."""
 
+from pytetra.cli import main
 
-class MyUserLayer(UserLayer):
-    def pdu_indication(self, layer, pdu):
-        print '%s: %s' % (layer, pdu)
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print "Usage : dump.py <filename>"
-
-    stack = TetraStack(MyUserLayer)
-    stack.phy.feed_from_file(sys.argv[1])
+    raise SystemExit(main())

@@ -1,3 +1,5 @@
+import numbers
+
 from pytetra.layer.mac.scrambling import Unscrambler
 from pytetra.layer.mac.interleaving import BSCHDeinterleaver, SCHFDeinterleaver, HalfDeinterleaver, TCHSDeinterleaver
 from pytetra.layer.mac.convolutional import ConvolutionalDecoder2_3, NormalTchsConvolutionalDecoder, StealingTchsConvolutionalDecoder
@@ -6,13 +8,26 @@ from pytetra.layer.mac.rmcode import RMDecoder
 from pytetra.layer.mac.reordering import TchsReorderer
 
 
+#class Decoder(object):
+#    def decode(self, b5):
+#        b4 = self.unscramble(b5)
+#        b3 = self.deinterleave(b4)
+#        b2 = self.convolutional_decode(b3)
+#        b1, crc_pass = self.block_decode(b2)
+#        return b1, crc_pass
 class Decoder(object):
-    def decode(self, b5):
+    def decode(self, b5, confidence=None):
         b4 = self.unscramble(b5)
-        b3 = self.deinterleave(b4)
+        if confidence is None:
+            b3 = self.deinterleave(b4)
+        else:
+            b4_soft = self.unscramble.confidence(confidence)
+            b3 = self.deinterleave(b4_soft)
         b2 = self.convolutional_decode(b3)
         b1, crc_pass = self.block_decode(b2)
+
         return b1, crc_pass
+
 
 
 class SCHFDecoder(Decoder):
@@ -43,7 +58,10 @@ class AACHDecoder(Decoder):
     def __init__(self, extended_colour_code):
         self.unscramble = Unscrambler(extended_colour_code)
         self.deinterleave = lambda x: x
-        self.convolutional_decode = lambda x: x
+        self.convolutional_decode = lambda x: [
+            int(value >= 0.0) if not isinstance(value, numbers.Integral) else int(value)
+            for value in x
+        ]
         self.block_decode = RMDecoder()
 
 
@@ -55,8 +73,8 @@ class NormalTchsDecoder(Decoder):
         self.block_decode = NormalTchsCrcChecker()
         self.reorder = TchsReorderer()
 
-    def decode(self, b5):
-        b1, crc_pass = super(NormalTchsDecoder, self).decode(b5)
+    def decode(self, b5, confidence=None):
+        b1, crc_pass = super(NormalTchsDecoder, self).decode(b5, confidence)
         b0 = self.reorder(b1[::2]), self.reorder(b1[1::2])
         return b0, crc_pass
 
@@ -69,8 +87,8 @@ class StealingTchsDecoder(Decoder):
         self.block_decode = StealingTchsCrcChecker()
         self.reorder = TchsReorderer()
 
-    def decode(self, b5):
-        b1, crc_pass = super(StealingTchsDecoder, self).decode(b5)
+    def decode(self, b5, confidence=None):
+        b1, crc_pass = super(StealingTchsDecoder, self).decode(b5, confidence)
         b0 = self.reorder(b1)
         return b0, crc_pass
 
@@ -82,8 +100,8 @@ class Decoders(dict):
     def __init__(self):
         self['BSCH'] = BSCHDecoder()
 
-    def decode(self, channel, b5):
-        return self[channel].decode(b5)
+    def decode(self, channel, b5, confidence=None):
+        return self[channel].decode(b5, confidence)
 
     def set_extended_colour_code(self, extended_colour_code):
         self['SCH/F'] = SCHFDecoder(extended_colour_code)

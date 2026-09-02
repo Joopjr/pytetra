@@ -1,4 +1,18 @@
-from pytetra.layer.cmce.pdu import CmcePdu, DConnect, DConnectAcknowledge, DRelease, DSetup, DStatus, DTxCeased, DTxGranted, DCallProceeding, DSdsData, DAlert
+from pytetra.layer.cmce.pdu import (
+    CmcePdu,
+    DAlert,
+    DCallProceeding,
+    DCallRestore,
+    DConnect,
+    DConnectAcknowledge,
+    DDisconnect,
+    DRelease,
+    DSetup,
+    DStatus,
+    DTxCeased,
+    DTxGranted,
+    DSdsData,
+)
 from pytetra.layer.cmce.elements import CallIdentifier
 from pytetra.sap.lcmcsap import UpperLcmcSap
 from pytetra.layer import Layer
@@ -6,7 +20,7 @@ from pytetra.layer import Layer
 
 # 11 Call Control (CC) service description
 class CallControl(object):
-    (STATE_UNDEFINED, STATE_SETUP) = range(2)
+    (STATE_UNDEFINED, STATE_SETUP) = list(range(2))
 
     def __init__(self):
         self.calls = {}
@@ -33,6 +47,7 @@ class ShortDataService(object):
 
 
 class Cmce(Layer, UpperLcmcSap):
+    layer_number = 3
     def __init__(self, stack):
         super(Cmce, self).__init__(stack)
         self.cc = CallControl()
@@ -42,7 +57,18 @@ class Cmce(Layer, UpperLcmcSap):
     def mle_unitdata_indication(self, sdu):
         pdu = CmcePdu.parse(sdu)
 
-        if pdu.__class__ in [DAlert, DCallProceeding, DConnect, DConnectAcknowledge, DRelease, DSetup, DTxCeased, DTxGranted]:
+        if pdu.__class__ in [
+            DAlert,
+            DCallProceeding,
+            DCallRestore,
+            DConnect,
+            DConnectAcknowledge,
+            DDisconnect,
+            DRelease,
+            DSetup,
+            DTxCeased,
+            DTxGranted,
+        ]:
             # CC sub-entity
             self.cc.mle_unitdata_indication(pdu)
         elif pdu.__class__ in []:

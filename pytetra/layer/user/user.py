@@ -7,3 +7,6 @@ class UserLayer(Layer):
 
     def speech_indication(self, block, bfi, marker):
         pass
+
+    def burst_summary_indication(self, chains):
+        pass

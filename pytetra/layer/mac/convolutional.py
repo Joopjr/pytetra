@@ -2,6 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import itertools
+import numbers
+
+import numpy as np
 
 
 class ConvolutionalDecoder(object):
@@ -27,19 +30,32 @@ class ConvolutionalDecoder(object):
                 output = self.next_output[oldstate][input_]
                 self.prevstate[newstate].append((oldstate, to_bin(output)))
 
+        # Flatten and vectorize the fixed 16-state trellis once. This keeps
+        # exact Viterbi decisions while removing the per-state Python hotspot.
+        predecessor_a = tuple(item[0][0] for item in self.prevstate)
+        predecessor_b = tuple(item[1][0] for item in self.prevstate)
+        expected_a = tuple(item[0][1] for item in self.prevstate)
+        expected_b = tuple(item[1][1] for item in self.prevstate)
+        self._predecessor_a = np.asarray(predecessor_a, dtype=np.intp)
+        self._predecessor_b = np.asarray(predecessor_b, dtype=np.intp)
+        self._expected_a = np.asarray(expected_a, dtype=np.int8)
+        self._expected_b = np.asarray(expected_b, dtype=np.int8)
+        self._soft_a = np.where(self._expected_a, 1.0, -1.0).astype(np.float32)
+        self._soft_b = np.where(self._expected_b, 1.0, -1.0).astype(np.float32)
+
     def decode_symbol(self, received, oldcost, n):
         cost = [0] * self.num_states
         h = [0] * self.num_states
 
         # What is the cheaper way to get to each state ?
-        for newstate in xrange(self.num_states):
+        for newstate in range(self.num_states):
             # Each state has 2 possible predecessors
             oldstate1, output1 = self.prevstate[newstate][0]
             oldstate2, output2 = self.prevstate[newstate][1]
 
             # Compute the cost of each state
-            c1 = oldcost[oldstate1] + self.diff[n](received, output1)
-            c2 = oldcost[oldstate2] + self.diff[n](received, output2)
+            c1 = oldcost[oldstate1] + self.branch_metric(received, output1)
+            c2 = oldcost[oldstate2] + self.branch_metric(received, output2)
 
             # The cheaper old state is written in history, and we keep its cost
             # for the next symbol decoding
@@ -52,31 +68,58 @@ class ConvolutionalDecoder(object):
 
         return cost, h
 
+    @staticmethod
+    def branch_metric(received, expected):
+        """Euclidean soft metric; binary input retains Hamming behaviour."""
+        cost = 0.0
+        for value, bit in zip(received, expected):
+            if isinstance(value, float):
+                target = 1.0 if bit else -1.0
+                cost += 0.25 * (float(value) - target) ** 2
+            else:
+                cost += int(value) ^ int(bit)
+        return cost
+
     def __call__(self, b3):
-        # We begin in state 0
-        oldcost = [self.MAX] * self.num_states
-        oldcost[0] = 0
-        history = []
+        values = np.asarray(b3)
+        oldcost = np.full(self.num_states, float(self.MAX), dtype=np.float64)
+        oldcost[0] = 0.0
+        history = np.empty((len(values), self.num_states), dtype=np.int8)
+        history_length = 0
+        soft = len(values) > 0 and not np.issubdtype(values.dtype, np.integer)
 
-        # For each symbol
-        for j, n in enumerate(self.puncturing):
-            # We get the significant bits of the symbol (bits not punctured)
-            received, b3 = b3[:n], b3[n:]
-
-            # Symbol decoding
-            oldcost, h = self.decode_symbol(received, oldcost, n)
-            history.append(h)
-
-            if not len(b3):
+        position = 0
+        for n in self.puncturing:
+            received = values[position:position + n]
+            position += n
+            if soft:
+                # Euclidean distance and negative correlation differ only by
+                # a branch-independent constant, so path decisions are exact.
+                metric_a = -(self._soft_a[:, :n] @ received)
+                metric_b = -(self._soft_b[:, :n] @ received)
+            else:
+                metric_a = np.count_nonzero(
+                    self._expected_a[:, :n] != received, axis=1)
+                metric_b = np.count_nonzero(
+                    self._expected_b[:, :n] != received, axis=1)
+            first = oldcost[self._predecessor_a] + metric_a
+            second = oldcost[self._predecessor_b] + metric_b
+            choose_first = first < second
+            oldcost = np.where(choose_first, first, second)
+            history[history_length] = np.where(
+                choose_first, self._predecessor_a, self._predecessor_b
+            )
+            history_length += 1
+            if position >= len(values):
                 break
 
         # We have 4 tail bits to 0, so we should end in state 0
         state = 0
-        b2 = [0] * len(history)
+        b2 = [0] * history_length
 
         # Walk the history backward to get the type-2 bits
-        for t in xrange(len(history) - 1, - 1, -1):
-            oldstate = history[t][state]
+        for t in range(history_length - 1, -1, -1):
+            oldstate = int(history[t][state])
             b2[t] = self.next_state[oldstate].index(state)
             state = oldstate
 
@@ -155,7 +198,9 @@ class NormalTchsConvolutionalDecoder(TchsConvolutionalDecoder):
     ))
 
     def __call__(self, b3):
-        return b3[:2 * 51] + super(NormalTchsConvolutionalDecoder, self).__call__(b3[2 * 51:])
+        uncoded = [int(value >= 0.0) if not isinstance(value, numbers.Integral) else int(value)
+                   for value in b3[:2 * 51]]
+        return uncoded + super(NormalTchsConvolutionalDecoder, self).__call__(b3[2 * 51:])
 
 
 class StealingTchsConvolutionalDecoder(TchsConvolutionalDecoder):
@@ -165,7 +210,9 @@ class StealingTchsConvolutionalDecoder(TchsConvolutionalDecoder):
     ))
 
     def __call__(self, b3):
-        return b3[:51] + super(StealingTchsConvolutionalDecoder, self).__call__(b3[51:])
+        uncoded = [int(value >= 0.0) if not isinstance(value, numbers.Integral) else int(value)
+                   for value in b3[:51]]
+        return uncoded + super(StealingTchsConvolutionalDecoder, self).__call__(b3[51:])
 
 
 if __name__ == "__main__":
@@ -178,16 +225,16 @@ if __name__ == "__main__":
             c1(b3)
         end = time.time()
         speed1 = 1000. * (end - start) / times
-        print "Fast decoder : %s ms" % (speed1, )
+        print("Fast decoder : %s ms" % (speed1, ))
 
         start = time.time()
         for i in range(times):
             c2(b3)
         end = time.time()
         speed2 = 1000. * (end - start) / times
-        print "Real decoder : %s ms" % (speed2)
+        print("Real decoder : %s ms" % (speed2))
 
-        print "Relative speed : %s%%" % (100 * speed1 / speed2)
+        print("Relative speed : %s%%" % (100 * speed1 / speed2))
 
     def bench_correction():
         import random
@@ -195,11 +242,11 @@ if __name__ == "__main__":
             s = 0
             for i in range(1000):
                 b3e = b3[:]
-                for x in random.sample(range(len(b3)), numerrors):
+                for x in random.sample(list(range(len(b3))), numerrors):
                     b3e[x] ^= 1
                 if c2(b3e) == b2:
                     s += 1
-            print numerrors, s / 1000.
+            print(numerrors, s / 1000.)
 
     from pytetra.layer.mac.puncturer import Depuncturer_2_3
     b3 = [1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0]
@@ -207,6 +254,6 @@ if __name__ == "__main__":
     c1 = FastConvolutionalDecoder(Depuncturer_2_3())
     c2 = ConvolutionalDecoder2_3()
 
-    print c2(b3) == b2
+    print(c2(b3) == b2)
 
     bench_correction()

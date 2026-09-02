@@ -1,10 +1,38 @@
 import unittest
 from pytetra.pdu.pdu import Bits
-from pytetra.layer.cmce.pdu import CmcePdu, DConnect, DSetup, DRelease, DTxCeased, DCallProceeding
+from pytetra.layer.cmce.pdu import (
+    CmcePdu,
+    CmceFunctionNotSupported,
+    DCallProceeding,
+    DConnect,
+    DFacility,
+    DInfo,
+    DRelease,
+    DSetup,
+    DTxCeased,
+    DTxContinue,
+    DTxInterrupt,
+    DTxWait,
+)
+from pytetra.pdu.sublayer32pdu import SduElement
 from pytetra.layer.cmce.elements import *
 
 
 class CmceTestCase(unittest.TestCase):
+    def test_assigned_raw_downlink_pdus_preserve_payload(self):
+        for pdu_type, expected in (
+            (5, DInfo),
+            (10, DTxContinue),
+            (12, DTxWait),
+            (13, DTxInterrupt),
+            (16, DFacility),
+            (31, CmceFunctionNotSupported),
+        ):
+            with self.subTest(pdu_type=pdu_type):
+                pdu = CmcePdu.parse(Bits(format(pdu_type, "05b") + "101011"))
+                self.assertIsInstance(pdu, expected)
+                self.assertEqual(pdu[SduElement].value, Bits("101011"))
+
     def test_dconnect(self):
         bits = '000100000000000011001110000000'
         #       *****                           PDU Type = 2 (D-CONNECT)

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from collections import OrderedDict
+from pytetra.logger import format_record
 
 
 class PduDecodingException(Exception):
@@ -19,6 +20,12 @@ class Bits(object):
         return res
 
     def read_int(self, size):
+        if len(self.bits) < size:
+            raise PduDecodingException(
+                "Not enough bits: need %d, have %d" %
+                (size, len(self.bits))
+            )
+
         res, self.bits = int(self.bits[:size], 2), self.bits[size:]
         return res
 
@@ -83,8 +90,10 @@ class Pdu(object):
             self.fields[field.name] = field.dissect(self, bits)
 
     def __getattr__(self, attr):
-        return self.fields[attr]
+        try:
+            return self.fields[attr]
+        except KeyError:
+            raise AttributeError(attr)
 
     def __repr__(self):
-        return '<%s ' % (self.__class__.__name__, ) + \
-            ' '.join('%s=%s' % item for item in self.fields.items()) + '>'
+        return format_record(self.__class__.__name__, self.fields.items())

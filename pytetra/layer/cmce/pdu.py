@@ -1,7 +1,45 @@
 #!/usr/bin/env python
 
 from pytetra.pdu.sublayer32pdu import Pdu, Type1, Type2, Type3, PduDiscriminator
+from pytetra.pdu.sublayer32pdu import SduElement
 from pytetra.layer.cmce.elements import *
+
+
+class CmceRawPdu(Pdu):
+    """Preserve an assigned downlink CMCE PDU not yet field-decoded."""
+    type1 = [Type1(PduType)]
+    type2 = []
+    type34 = []
+    has_o_bit = False
+    sdu = True
+
+
+class DInfo(CmceRawPdu):
+    name = "D-INFO"
+
+
+class DTxContinue(CmceRawPdu):
+    name = "D-TX CONTINUE"
+
+
+class DTxWait(CmceRawPdu):
+    name = "D-TX WAIT"
+
+
+class DTxInterrupt(CmceRawPdu):
+    name = "D-TX INTERRUPT"
+
+
+class DFacility(CmceRawPdu):
+    name = "D-FACILITY"
+
+
+class CmceFunctionNotSupported(CmceRawPdu):
+    name = "CMCE FUNCTION NOT SUPPORTED"
+
+
+class CmceReservedPdu(CmceRawPdu):
+    name = "Reserved CMCE PDU"
 
 
 # 14.7.1.4 D-CONNECT
@@ -275,15 +313,25 @@ class DAlert(Pdu):
 class CmcePdu(PduDiscriminator):
     element = PduType
     pdu_types = {
+        0: DAlert,
         1: DCallProceeding,
         2: DConnect,
         3: DConnectAcknowledge,
         4: DDisconnect,
+        5: DInfo,
         6: DRelease,
         7: DSetup,
         8: DStatus,
         9: DTxCeased,
+        10: DTxContinue,
         11: DTxGranted,
+        12: DTxWait,
+        13: DTxInterrupt,
         14: DCallRestore,
         15: DSdsData,
+        16: DFacility,
+        31: CmceFunctionNotSupported,
     }
+
+    for _reserved_type in range(17, 31):
+        pdu_types[_reserved_type] = CmceReservedPdu
