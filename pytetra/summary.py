@@ -1,6 +1,9 @@
 from pytetra.logger import field_name
 from pytetra.pdu import Bits
-from pytetra.layer.mac.pdu import MAC_RESOURCE_ADDRESS_FIELDS
+from pytetra.layer.mac.pdu import (
+    MAC_RESOURCE_ADDRESS_FIELDS,
+    mac_resource_identity_field_name,
+)
 
 
 LAYER3_NAMES = {
@@ -65,9 +68,12 @@ def _flatten_named_value(name, value):
 
 def _identity_field(chain):
     """Render the MAC address value using its over-the-air identity type."""
-    encryption_mode = getattr(chain["layer2"], "encryption_mode", None)
-    label = "ESI" if encryption_mode in (2, 3) else "SSI"
-    return "%s(%d)" % (label, chain["ssi"])
+    pdu = chain["layer2"]
+    label = mac_resource_identity_field_name(
+        getattr(pdu, "address_type", None),
+        getattr(pdu, "encryption_mode", None),
+    )
+    return "%s(%d)" % (field_name(label), chain["ssi"])
 
 
 def format_chain(chain):

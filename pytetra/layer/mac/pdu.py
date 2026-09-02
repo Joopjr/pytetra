@@ -139,6 +139,15 @@ def mac_resource_address_has(address_type, field_name):
     return field_name in MAC_RESOURCE_ADDRESS_FIELDS.get(address_type, ())
 
 
+def mac_resource_identity_field_name(address_type, encryption_mode):
+    """Return the ETSI identity label used to present a MAC address."""
+    if address_type in (4, 7):
+        return "smi"
+    if encryption_mode in (2, 3):
+        return "esi"
+    return "ssi"
+
+
 # 21.4.3.1 MAC-RESOURCE
 class MacResourcePdu(Pdu):
     fields_desc = [
@@ -172,12 +181,11 @@ class MacResourcePdu(Pdu):
     ]
 
     def __repr__(self):
-        identity_is_encrypted = self.encryption_mode in (2, 3)
+        identity_field_name = mac_resource_identity_field_name(
+            self.address_type, self.encryption_mode
+        )
         fields = (
-            (
-                "esi" if identity_is_encrypted and key == "ssi" else key,
-                value,
-            )
+            (identity_field_name if key == "ssi" else key, value)
             for key, value in self.fields.items()
         )
         return format_record(self.__class__.__name__, fields)

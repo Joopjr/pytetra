@@ -91,6 +91,34 @@ class MacLayerTestCase(unittest.TestCase):
                 other_label = "ESI" if expected_label == "SSI" else "SSI"
                 self.assertNotIn("%s(424242)" % other_label, rendered)
 
+    def test_smi_identity_label_follows_address_type(self):
+        for address_type in (4, 7):
+            for encryption_mode in (0, 1, 2, 3):
+                with self.subTest(
+                    address_type=address_type,
+                    encryption_mode=encryption_mode,
+                ):
+                    pdu = self._resource_with_ssi(
+                        424242,
+                        address_type=address_type,
+                        encryption_mode=encryption_mode,
+                    )
+                    chain = {
+                        "ssi": 424242,
+                        "mcc": 204,
+                        "mnc": 1000,
+                        "la": 42,
+                        "layer2": pdu,
+                        "layer3": None,
+                    }
+
+                    self.assertIn("SMI(424242)", format_chain(chain))
+                    self.assertIn("SMI(424242)", repr(pdu))
+                    self.assertNotIn("SSI(424242)", format_chain(chain))
+                    self.assertNotIn("ESI(424242)", format_chain(chain))
+                    self.assertNotIn("SSI(424242)", repr(pdu))
+                    self.assertNotIn("ESI(424242)", repr(pdu))
+
     def test_encrypted_identity_is_hidden_from_compact_output_by_default(self):
         stack = TetraStack(RecordingUser, debug=False)
         stack.begin_burst()
