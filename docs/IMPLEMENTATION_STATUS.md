@@ -38,7 +38,7 @@ structure.
 
 CMCE semantic classes include D-ALERT, D-CALL-PROCEEDING, D-CALL-RESTORE,
 D-CONNECT, D-CONNECT-ACKNOWLEDGE, D-DISCONNECT, D-RELEASE, D-SETUP, D-STATUS,
-D-TX-CEASED, D-TX-GRANTED, and D-SDS-DATA. D-INFO, D-TX-CONTINUE, D-TX-WAIT,
+D-TX-CEASED, D-TX-CONTINUE, D-TX-GRANTED, and D-SDS-DATA. D-INFO, D-TX-WAIT,
 D-TX-INTERRUPT, D-FACILITY, and FUNCTION-NOT-SUPPORTED retain raw bodies.
 
 MM semantic classes include D-OTAR, D-AUTHENTICATION,
@@ -49,7 +49,7 @@ D-CK-CHANGE-DEMAND, D-DISABLE, and D-ENABLE retain named raw bodies.
 
 ## Regression evidence
 
-The release test suite contains 75 tests. A full replay of the development
+The release test suite contains 99 tests. A full replay of the development
 recording completes without decoder exceptions or delivery failures and
 produces 743 compact SSI-chain summaries: 722 at Layer 2 and 21 at Layer 3.
 The observed Layer-3 messages comprise 14 D-AUTHENTICATION and 7
