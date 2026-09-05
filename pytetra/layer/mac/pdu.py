@@ -346,23 +346,59 @@ class AccessAssignPdu(Pdu):
         UIntField("field2", 6),
     ]
 
-    FIELD_NAMES = {
-        0: ("uplink_access_field_1", "uplink_access_field_2"),
-        1: ("downlink_usage_marker", "uplink_common_access"),
-        2: ("downlink_usage_marker", "uplink_access_opportunity"),
-        3: ("downlink_usage_marker", "uplink_usage_marker"),
+    ACCESS_CODES = ("A", "B", "C", "D")
+    BASE_FRAME_LENGTHS = {
+        0: "Reserved subslot",
+        1: "CLCH subslot",
+        2: "Ongoing frame",
+        3: "1 subslot",
+        4: "2 subslots",
+        5: "3 subslots",
+        6: "4 subslots",
+        7: "5 subslots",
+        8: "6 subslots",
+        9: "8 subslots",
+        10: "10 subslots",
+        11: "12 subslots",
+        12: "16 subslots",
+        13: "20 subslots",
+        14: "24 subslots",
+        15: "Reserved",
     }
 
-    def __repr__(self):
-        field1_name, field2_name = self.FIELD_NAMES.get(
-            self.header,
-            ("field1", "field2"),
+    @classmethod
+    def format_access_field(cls, value, suffix=""):
+        access_code = cls.ACCESS_CODES[(value >> 4) & 0x03]
+        frame_length = cls.BASE_FRAME_LENGTHS[value & 0x0F]
+        return (
+            "UplinkAccessField%s(AccessCode(%s), BaseFrameLength(%r))"
+            % (suffix, access_code, frame_length)
         )
-        return format_record(
+
+    def __repr__(self):
+        if self.header == 0:
+            rendered_fields = (
+                self.format_access_field(self.field1, "1"),
+                self.format_access_field(self.field2, "2"),
+            )
+        elif self.header in (1, 2):
+            rendered_fields = (
+                "DownlinkUsageMarker(%d)" % self.field1,
+                self.format_access_field(self.field2),
+            )
+        elif self.header == 3:
+            rendered_fields = (
+                "DownlinkUsageMarker(%d)" % self.field1,
+                "UplinkUsageMarker(%d)" % self.field2,
+            )
+        else:
+            rendered_fields = (
+                "Field1(%d)" % self.field1,
+                "Field2(%d)" % self.field2,
+            )
+
+        return "%s(Header(%d), %s)" % (
             self.__class__.__name__,
-            (
-                ("header", self.header),
-                (field1_name, self.field1),
-                (field2_name, self.field2),
-            ),
+            self.header,
+            ", ".join(rendered_fields),
         )
