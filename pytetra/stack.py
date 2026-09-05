@@ -30,7 +30,6 @@ class TetraStack(object):
         self._output_suppression_depth = 0
         self._burst_chains = None
         self._active_mac_chain = None
-        self._aach_slot_state.clear()
         self._burst_sequence = 0
         self._usage_marker_last_seen = {}
         self._esi_usage_assignments = set()
@@ -203,6 +202,7 @@ class TetraStack(object):
         """Discard only state that cannot safely cross a missing burst."""
         self._burst_chains = None
         self._active_mac_chain = None
+        self._aach_slot_state.clear()
         self.upper_mac.downlink_usage_marker = None
         self.lower_mac.bkn2_stolen = False
         self.upper_mac.defragmenter.reset()
