@@ -506,6 +506,7 @@ class UpperMac(Layer, UpperTmvSap):
         """
         if not crc_pass:
             self.downlink_usage_marker = self.UMx
+            self.stack.invalidate_aach_slot()
             self.crc_drops["AACH"] += 1
             if self.debug_enabled:
                 self.info(
@@ -519,6 +520,7 @@ class UpperMac(Layer, UpperTmvSap):
         except Exception as exc:
             # An invalid AACH must not leave the old usage marker active.
             self.downlink_usage_marker = self.UMx
+            self.stack.invalidate_aach_slot()
             if self.debug_enabled:
                 self.warning(
                     "DEBUG AACH parse failure | error_type=%s | error=%s"
@@ -533,6 +535,7 @@ class UpperMac(Layer, UpperTmvSap):
         # Frame 18 has special handling in the existing stack.
         if g_timebase.fn == 18:
             self.downlink_usage_marker = self.UMc
+            self.stack.invalidate_aach_slot()
             return
 
         header = getattr(pdu, "header", None)
@@ -540,6 +543,7 @@ class UpperMac(Layer, UpperTmvSap):
 
         if header is None:
             self.downlink_usage_marker = self.UMx
+            self.stack.invalidate_aach_slot()
             return
 
         if header == 0:
