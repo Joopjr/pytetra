@@ -18,10 +18,6 @@ class DInfo(CmceRawPdu):
     name = "D-INFO"
 
 
-class DTxContinue(CmceRawPdu):
-    name = "D-TX CONTINUE"
-
-
 class DTxWait(CmceRawPdu):
     name = "D-TX WAIT"
 
@@ -186,6 +182,26 @@ class DTxCeased(Pdu):
     ]
     type34 = [
         Type3(Facility),
+        Type3(Proprietary),
+    ]
+
+
+# 14.7.1.14 D-TX CONTINUE
+class DTxContinue(Pdu):
+    name = "D-TX CONTINUE"
+
+    type1 = [
+        Type1(PduType),
+        Type1(CallIdentifier),
+        Type1(Continue),
+        Type1(TransmissionRequestPermission),
+    ]
+    type2 = [
+        Type2(NotificationIndicator),
+    ]
+    type34 = [
+        Type3(Facility),
+        Type3(DmMsAddress),
         Type3(Proprietary),
     ]
 
