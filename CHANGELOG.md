@@ -8,6 +8,16 @@ MAC/LLC/MLE dispatch, and a subset of CMCE and MM PDUs.
 
 ## 1.1.0
 
+- completed semantic decoding of the downlink `D-TX CONTINUE` CMCE PDU,
+  including call identifier, continue decision, transmission-request
+  permission, and optional elements;
+- verified and regression-tested `D-SETUP`, `D-CALL PROCEEDING`,
+  `D-CONNECT`, and `D-TX GRANTED` decoding;
+- retained CMCE call-control PDUs in full debug output and in compact output
+  only when they belong to an addressed chain permitted by the existing
+  `--show-esi` visibility rules;
+- corrected the diagnostic name of the reserved `D-TX GRANTED` bit;
+
 - expanded compact Layer-2 MAC-RESOURCE output to include every actually
   present parsed header field while continuing to omit the raw SDU;
 - made the mandatory fill-bit, position-of-grant, encryption, random-access,
