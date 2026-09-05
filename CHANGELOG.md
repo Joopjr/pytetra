@@ -17,9 +17,8 @@ MAC/LLC/MLE dispatch, and a subset of CMCE and MM PDUs.
   opportunities;
 - added `--show-esi` traffic-usage observations: the first valid AACH traffic
   marker and the first ESI/Usage Marker assignment are shown once per local
-  five-second marker epoch, while repeated maintenance PDUs remain available
-  under `--debug`;
-
+  five-second (353 accepted continuous downlink bursts) marker epoch, while
+  repeated maintenance PDUs remain available under `--debug`;
 - completed semantic decoding of the downlink `D-TX CONTINUE` CMCE PDU,
   including call identifier, continue decision, transmission-request
   permission, and optional elements;
