@@ -29,8 +29,18 @@ class PduType(EnumElement):
 
 
 class Reserved(IntElement):
-    name = "Encryption control"
+    name = "Reserved"
     length = 1
+
+
+# 14.8.15 Continue
+class Continue(EnumElement):
+    name = "Continue"
+    length = 1
+    enum = [
+        "not continue",
+        "continue",
+    ]
 
 
 # 14.8.3 Call identifier
