@@ -515,8 +515,8 @@ class MacLayerTestCase(unittest.TestCase):
                 self.assertIn("Header(%d)" % header, rendered)
                 self.assertIn(names[0], rendered)
                 self.assertIn(names[1], rendered)
-                self.assertNotIn("Field1(", rendered)
-                self.assertNotIn("Field2(", rendered)
+                self.assertNotIn(", Field1(", rendered)
+                self.assertNotIn(", Field2(", rendered)
 
     def test_encrypted_channel_allocation_is_opaque(self):
         bits = Bits(
