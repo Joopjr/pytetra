@@ -131,7 +131,12 @@ class MacLayerTestCase(unittest.TestCase):
         self.assertEqual(stack.user.summaries, [])
 
     def test_show_esi_retains_encrypted_identity_in_compact_output(self):
-        stack = TetraStack(RecordingUser, debug=False, show_esi=True)
+        stack = TetraStack(
+            RecordingUser,
+            debug=False,
+            show_esi=True,
+            carrier_frequency=410012500,
+        )
         stack.begin_burst()
         stack.upper_mac._handle_data_pdu(
             self._resource_with_ssi(424242, encryption_mode=3)
@@ -501,9 +506,18 @@ class MacLayerTestCase(unittest.TestCase):
 
     def test_access_assign_debug_fields_follow_header(self):
         expected = {
-            0: ("UplinkAccessField1(34)", "UplinkAccessField2(6)"),
-            1: ("DownlinkUsageMarker(34)", "UplinkCommonAccess(6)"),
-            2: ("DownlinkUsageMarker(34)", "UplinkAccessOpportunity(6)"),
+            0: (
+                "UplinkAccessField1(AccessCode(C), BaseFrameLength('Ongoing frame'))",
+                "UplinkAccessField2(AccessCode(A), BaseFrameLength('4 subslots'))",
+            ),
+            1: (
+                "DownlinkUsageMarker(34)",
+                "UplinkAccessField(AccessCode(A), BaseFrameLength('4 subslots'))",
+            ),
+            2: (
+                "DownlinkUsageMarker(34)",
+                "UplinkAccessField(AccessCode(A), BaseFrameLength('4 subslots'))",
+            ),
             3: ("DownlinkUsageMarker(34)", "UplinkUsageMarker(6)"),
         }
         for header, names in expected.items():
@@ -567,7 +581,9 @@ class MacLayerTestCase(unittest.TestCase):
 
         rendered = [format_chain(chain) for chain in stack.user.summaries]
         self.assertEqual(len(rendered), 2)
-        self.assertIn("MAC(AccessAssignPdu); UsageMarker(34)", rendered[0])
+        self.assertIn("MAC(AccessAssignPdu); CarrierFrequency(410012500)", rendered[0])
+        self.assertIn("Timeslot(", rendered[0])
+        self.assertIn("UsageMarker(34)", rendered[0])
         self.assertIn("ESI(424242)", rendered[1])
         self.assertIn("UsageMarker(34)", rendered[1])
 
@@ -580,6 +596,48 @@ class MacLayerTestCase(unittest.TestCase):
         stack.finish_burst()
 
         self.assertEqual(len(stack.user.summaries), 4)
+
+    def test_show_esi_excludes_non_traffic_usage_markers(self):
+        stack = TetraStack(RecordingUser, debug=False, show_esi=True)
+        pdu = self._resource_with_ssi(
+            424242,
+            address_type=6,
+            encryption_mode=3,
+        )
+        pdu.fields["usage_marker"] = 2
+
+        stack.begin_burst()
+        stack.upper_mac._handle_data_pdu(pdu)
+        stack.finish_burst()
+
+        self.assertEqual(stack.user.summaries, [])
+
+    def test_aach_marker_change_reports_previous_value(self):
+        stack = TetraStack(
+            RecordingUser,
+            debug=False,
+            show_esi=True,
+            carrier_frequency=410012500,
+        )
+        first = AccessAssignPdu(
+            Bits("10" + format(34, "06b") + format(6, "06b"))
+        )
+        second = AccessAssignPdu(
+            Bits("10" + format(35, "06b") + format(6, "06b"))
+        )
+
+        stack.begin_burst()
+        stack.record_usage_marker(first, 34)
+        stack.finish_burst()
+        stack.begin_burst()
+        stack.record_usage_marker(second, 35)
+        stack.finish_burst()
+
+        rendered = [format_chain(chain) for chain in stack.user.summaries]
+        self.assertEqual(len(rendered), 2)
+        self.assertNotIn("PreviousUsageMarker(", rendered[0])
+        self.assertIn("PreviousUsageMarker(34)", rendered[1])
+        self.assertIn("UsageMarker(35)", rendered[1])
 
     def test_authentication_result_is_selected_as_highest_layer(self):
         stack = TetraStack(RecordingUser, debug=False)
