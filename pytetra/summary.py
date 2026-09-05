@@ -112,9 +112,20 @@ def format_chain(chain):
     )
     pdu = chain["layer2"]
     if type(pdu).__name__ == "AccessAssignPdu":
-        return "DL; %s; Layer 2 - MAC(AccessAssignPdu); UsageMarker(%s)" % (
-            cell,
+        fields = [
+            _format_scalar("carrier_frequency", chain.get("carrier_frequency")),
+            _format_scalar("timeslot", chain.get("timeslot")),
+        ]
+        previous = chain.get("previous_usage_marker")
+        if previous is not None:
+            fields.append(_format_scalar("previous_usage_marker", previous))
+        fields.append(_format_scalar(
+            "usage_marker",
             chain.get("usage_marker", getattr(pdu, "field1", None)),
+        ))
+        return "DL; %s; Layer 2 - MAC(AccessAssignPdu); %s" % (
+            cell,
+            ", ".join(fields),
         )
 
     layer3 = chain.get("layer3")
