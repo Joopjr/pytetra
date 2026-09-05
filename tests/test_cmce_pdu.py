@@ -11,6 +11,7 @@ from pytetra.layer.cmce.pdu import (
     DSetup,
     DTxCeased,
     DTxContinue,
+    DTxGranted,
     DTxInterrupt,
     DTxWait,
 )
@@ -22,7 +23,6 @@ class CmceTestCase(unittest.TestCase):
     def test_assigned_raw_downlink_pdus_preserve_payload(self):
         for pdu_type, expected in (
             (5, DInfo),
-            (10, DTxContinue),
             (12, DTxWait),
             (13, DTxInterrupt),
             (16, DFacility),
@@ -111,6 +111,42 @@ class CmceTestCase(unittest.TestCase):
             PduType('D-RELEASE'),
             CallIdentifier(6),
             DisconnectCause(14),
+        )
+        self.assertEqual(CmcePdu.parse(Bits(bits)), pdu)
+
+    def test_dtxcontinue(self):
+        bits = "0101000000000000110100"
+        #       *****                 PDU Type = 10 (D-TX CONTINUE)
+        #            **************   Call identifier = 6
+        #                          *  Continue = 1 (Continue)
+        #                           * Transmission request permission = 0 (Allowed)
+        #                            O O-bit = 0
+
+        pdu = DTxContinue(
+            PduType("D-TX CONTINUE"),
+            CallIdentifier(6),
+            Continue("continue"),
+            TransmissionRequestPermission("allowed"),
+        )
+        self.assertEqual(CmcePdu.parse(Bits(bits)), pdu)
+
+    def test_dtxgranted(self):
+        bits = "0101100000000000110000100"
+        #       *****                    PDU Type = 11 (D-TX GRANTED)
+        #            **************      Call identifier = 6
+        #                          **    Transmission grant = 0 (Granted)
+        #                            *   Transmission request permission = 0
+        #                             *  Encryption control = 1 (Encrypted)
+        #                              * Reserved = 0
+        #                               O O-bit = 0
+
+        pdu = DTxGranted(
+            PduType("D-TX GRANTED"),
+            CallIdentifier(6),
+            TransmissionGrant("granted"),
+            TransmissionRequestPermission("allowed"),
+            EncryptionControl("encrypted"),
+            Reserved(0),
         )
         self.assertEqual(CmcePdu.parse(Bits(bits)), pdu)
 
