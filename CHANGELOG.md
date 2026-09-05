@@ -13,9 +13,9 @@ MAC/LLC/MLE dispatch, and a subset of CMCE and MM PDUs.
   permission, and optional elements;
 - verified and regression-tested `D-SETUP`, `D-CALL PROCEEDING`,
   `D-CONNECT`, and `D-TX GRANTED` decoding;
-- retained CMCE call-control PDUs in full debug output and in compact output
-  only when they belong to an addressed chain permitted by the existing
-  `--show-esi` visibility rules;
+- retained all decoded CMCE call-control PDUs in full debug output and kept
+  encrypted MAC SDUs opaque; `--show-esi` exposes their ESI-addressed MAC
+  resource but does not guess the encrypted CMCE PDU type;
 - corrected the diagnostic name of the reserved `D-TX GRANTED` bit;
 
 - expanded compact Layer-2 MAC-RESOURCE output to include every actually
