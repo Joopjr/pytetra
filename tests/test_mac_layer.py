@@ -400,6 +400,104 @@ class MacLayerTestCase(unittest.TestCase):
         self.assertIn("SSI(424242)", line)
         self.assertNotIn("Sdu(", line)
 
+    def test_compact_mac_resource_includes_all_present_header_fields(self):
+        pdu = object.__new__(MacResourcePdu)
+        pdu.fields = OrderedDict((
+            ("fill_bits_indication", 1),
+            ("position_of_grant", 0),
+            ("encryption_mode", 0),
+            ("random_access_flag", 1),
+            ("length_indication", 20),
+            ("address_type", 6),
+            ("ssi", 424242),
+            ("usage_marker", 17),
+            ("power_control_flag", 1),
+            ("power_control_element", 9),
+            ("slot_granting_flag", 1),
+            ("slot_granting_element", 85),
+            ("channel_allocation_flag", 1),
+            ("allocation_type", 2),
+            ("timeslot_assigned", 4),
+            ("up_down_assigned", 1),
+            ("clch_permission", 1),
+            ("cell_change", 0),
+            ("carrier_number", 512),
+            ("ext_carrier_number", 1),
+            ("freq_band", 4),
+            ("offset", 2),
+            ("duplex_spacing", 3),
+            ("reverse_operation", 0),
+            ("monitoring_pattern", 0),
+            ("frame_18_monitoring_pattern", 2),
+            ("sdu", Bits("1010")),
+        ))
+        rendered = format_chain({
+            "ssi": 424242,
+            "mcc": 204,
+            "mnc": 9999,
+            "la": 42,
+            "layer2": pdu,
+            "layer3": None,
+        })
+
+        expected_fields = (
+            "FillBitsIndication(1)",
+            "PositionOfGrant(0)",
+            "EncryptionMode(0)",
+            "RandomAccessFlag(1)",
+            "LengthIndication(20)",
+            "AddressType(6)",
+            "UsageMarker(17)",
+            "PowerControlFlag(1)",
+            "PowerControlElement(9)",
+            "SlotGrantingFlag(1)",
+            "SlotGrantingElement(85)",
+            "ChannelAllocationFlag(1)",
+            "AllocationType(2)",
+            "TimeslotAssigned(4)",
+            "UpDownAssigned(1)",
+            "ClchPermission(1)",
+            "CellChange(0)",
+            "CarrierNumber(512)",
+            "ExtCarrierNumber(1)",
+            "FreqBand(4)",
+            "Offset(2)",
+            "DuplexSpacing(3)",
+            "ReverseOperation(0)",
+            "MonitoringPattern(0)",
+            "Frame18MonitoringPattern(2)",
+        )
+        for expected in expected_fields:
+            with self.subTest(field=expected):
+                self.assertIn(expected, rendered)
+        self.assertNotIn("Sdu(", rendered)
+
+    def test_compact_mac_resource_omits_absent_optional_fields(self):
+        pdu = self._resource_with_ssi(424242)
+        pdu.fields.update((
+            ("fill_bits_indication", 0),
+            ("position_of_grant", 0),
+            ("random_access_flag", 0),
+            ("power_control_flag", 0),
+            ("slot_granting_flag", 0),
+            ("channel_allocation_flag", 0),
+        ))
+        rendered = format_chain({
+            "ssi": 424242,
+            "mcc": 204,
+            "mnc": 9999,
+            "la": 42,
+            "layer2": pdu,
+            "layer3": None,
+        })
+
+        self.assertIn("PowerControlFlag(0)", rendered)
+        self.assertIn("SlotGrantingFlag(0)", rendered)
+        self.assertIn("ChannelAllocationFlag(0)", rendered)
+        self.assertNotIn("PowerControlElement(", rendered)
+        self.assertNotIn("SlotGrantingElement(", rendered)
+        self.assertNotIn("AllocationType(", rendered)
+
     def test_authentication_result_is_selected_as_highest_layer(self):
         stack = TetraStack(RecordingUser, debug=False)
         pdu = self._resource_with_ssi(424242)

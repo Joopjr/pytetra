@@ -6,6 +6,17 @@ from 10 November 2015. The upstream project already provided the protocol-stack
 structure, continuous downlink burst parsing, channel-code primitives, basic
 MAC/LLC/MLE dispatch, and a subset of CMCE and MM PDUs.
 
+## 1.1.0
+
+- expanded compact Layer-2 MAC-RESOURCE output to include every actually
+  present parsed header field while continuing to omit the raw SDU;
+- made the mandatory fill-bit, position-of-grant, encryption, random-access,
+  length, address-type, power-control, slot-granting, and channel-allocation
+  fields visible with their values;
+- included conditional address, power-control, slot-granting, and channel-
+  allocation elements only when they are present in the decoded PDU;
+- added regression coverage for complete and minimal MAC-RESOURCE headers.
+
 ## 1.0.0
 
 - aligned the README and manual structure with PyTetra-Live, including direct

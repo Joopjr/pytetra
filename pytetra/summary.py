@@ -1,9 +1,6 @@
 from pytetra.logger import field_name
 from pytetra.pdu import Bits
-from pytetra.layer.mac.pdu import (
-    MAC_RESOURCE_ADDRESS_FIELDS,
-    mac_resource_identity_field_name,
-)
+from pytetra.layer.mac.pdu import mac_resource_identity_field_name
 
 
 LAYER3_NAMES = {
@@ -12,6 +9,36 @@ LAYER3_NAMES = {
     "Mm": "MM",
     "Sndcp": "SNDCP",
 }
+
+
+MAC_RESOURCE_COMPACT_FIELDS = (
+    "fill_bits_indication",
+    "position_of_grant",
+    "encryption_mode",
+    "random_access_flag",
+    "length_indication",
+    "address_type",
+    "event_label",
+    "usage_marker",
+    "power_control_flag",
+    "power_control_element",
+    "slot_granting_flag",
+    "slot_granting_element",
+    "channel_allocation_flag",
+    "allocation_type",
+    "timeslot_assigned",
+    "up_down_assigned",
+    "clch_permission",
+    "cell_change",
+    "carrier_number",
+    "ext_carrier_number",
+    "freq_band",
+    "offset",
+    "duplex_spacing",
+    "reverse_operation",
+    "monitoring_pattern",
+    "frame_18_monitoring_pattern",
+)
 
 
 def _format_scalar(name, value):
@@ -96,16 +123,10 @@ def format_chain(chain):
 
     pdu = chain["layer2"]
     fields = [_identity_field(chain)]
-    for name in (
-        "address_type",
-        *MAC_RESOURCE_ADDRESS_FIELDS.get(getattr(pdu, "address_type", None), ()),
-        "encryption_mode",
-        "random_access_flag",
-        "length_indication",
-    ):
-        if name == "ssi":
-            continue
-        fields.append(_format_scalar(name, getattr(pdu, name, None)))
+    for name in MAC_RESOURCE_COMPACT_FIELDS:
+        value = getattr(pdu, name, None)
+        if value is not None:
+            fields.append(_format_scalar(name, value))
     return "DL; %s; Layer 2 - MAC(%s); %s" % (
         cell,
         type(pdu).__name__,
