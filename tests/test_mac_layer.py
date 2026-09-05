@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 from pytetra.layer.mac.pdu import (
     MAC_RESOURCE_ADDRESS_FIELDS,
+    AccessAssignPdu,
     MacEnd,
     MacPdu,
     MacResourcePdu,
@@ -497,6 +498,88 @@ class MacLayerTestCase(unittest.TestCase):
         self.assertNotIn("PowerControlElement(", rendered)
         self.assertNotIn("SlotGrantingElement(", rendered)
         self.assertNotIn("AllocationType(", rendered)
+
+    def test_access_assign_debug_fields_follow_header(self):
+        expected = {
+            0: ("UplinkAccessField1(34)", "UplinkAccessField2(6)"),
+            1: ("DownlinkUsageMarker(34)", "UplinkCommonAccess(6)"),
+            2: ("DownlinkUsageMarker(34)", "UplinkAccessOpportunity(6)"),
+            3: ("DownlinkUsageMarker(34)", "UplinkUsageMarker(6)"),
+        }
+        for header, names in expected.items():
+            with self.subTest(header=header):
+                pdu = AccessAssignPdu(
+                    Bits(format(header, "02b") + format(34, "06b") + format(6, "06b"))
+                )
+                rendered = repr(pdu)
+                self.assertIn("Header(%d)" % header, rendered)
+                self.assertIn(names[0], rendered)
+                self.assertIn(names[1], rendered)
+                self.assertNotIn("Field1(", rendered)
+                self.assertNotIn("Field2(", rendered)
+
+    def test_encrypted_channel_allocation_is_opaque(self):
+        bits = Bits(
+            "00"       # MAC-RESOURCE
+            "0"        # fill bits indication
+            "0"        # position of grant
+            "11"       # encryption mode 3
+            "0"        # random access flag
+            "001000"   # total length: eight octets
+            "110"      # SSI plus traffic usage marker
+            + format(424242, "024b")
+            + format(34, "06b")
+            + "0"      # power control flag
+            + "0"      # slot granting flag
+            + "1"      # encrypted channel allocation is present
+            + "101010101010101"  # opaque encrypted remainder
+        )
+
+        pdu = MacPdu(bits)
+        rendered = repr(pdu)
+
+        self.assertEqual(pdu.channel_allocation_flag, 1)
+        self.assertNotIn("allocation_type", pdu.fields)
+        self.assertNotIn("timeslot_assigned", pdu.fields)
+        self.assertNotIn("carrier_number", pdu.fields)
+        self.assertIn("ChannelAllocation(encrypted)", rendered)
+        self.assertEqual(pdu.sdu, "101010101010101")
+
+    def test_show_esi_emits_marker_and_assignment_once_per_epoch(self):
+        stack = TetraStack(RecordingUser, debug=False, show_esi=True)
+        aach = AccessAssignPdu(Bits("10" + format(34, "06b") + format(6, "06b")))
+        pdu = self._resource_with_ssi(
+            424242,
+            address_type=6,
+            encryption_mode=3,
+        )
+        pdu.fields["usage_marker"] = 34
+
+        stack.begin_burst()
+        stack.record_usage_marker(aach, 34)
+        stack.finish_burst()
+        stack.begin_burst()
+        stack.upper_mac._handle_data_pdu(pdu)
+        stack.finish_burst()
+        stack.begin_burst()
+        stack.upper_mac._handle_data_pdu(pdu)
+        stack.finish_burst()
+
+        rendered = [format_chain(chain) for chain in stack.user.summaries]
+        self.assertEqual(len(rendered), 2)
+        self.assertIn("MAC(AccessAssignPdu); UsageMarker(34)", rendered[0])
+        self.assertIn("ESI(424242)", rendered[1])
+        self.assertIn("UsageMarker(34)", rendered[1])
+
+        stack._burst_sequence += stack.USAGE_MARKER_TIMEOUT_BURSTS + 1
+        stack.begin_burst()
+        stack.record_usage_marker(aach, 34)
+        stack.finish_burst()
+        stack.begin_burst()
+        stack.upper_mac._handle_data_pdu(pdu)
+        stack.finish_burst()
+
+        self.assertEqual(len(stack.user.summaries), 4)
 
     def test_authentication_result_is_selected_as_highest_layer(self):
         stack = TetraStack(RecordingUser, debug=False)

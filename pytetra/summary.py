@@ -25,6 +25,7 @@ MAC_RESOURCE_COMPACT_FIELDS = (
     "slot_granting_flag",
     "slot_granting_element",
     "channel_allocation_flag",
+    "channel_allocation",
     "allocation_type",
     "timeslot_assigned",
     "up_down_assigned",
@@ -109,6 +110,13 @@ def format_chain(chain):
         chain.get("mnc"),
         chain.get("la"),
     )
+    pdu = chain["layer2"]
+    if type(pdu).__name__ == "AccessAssignPdu":
+        return "DL; %s; Layer 2 - MAC(AccessAssignPdu); UsageMarker(%s)" % (
+            cell,
+            chain.get("usage_marker", getattr(pdu, "field1", None)),
+        )
+
     layer3 = chain.get("layer3")
     if layer3 is not None:
         layer_name, pdu = layer3
@@ -124,7 +132,15 @@ def format_chain(chain):
     pdu = chain["layer2"]
     fields = [_identity_field(chain)]
     for name in MAC_RESOURCE_COMPACT_FIELDS:
-        value = getattr(pdu, name, None)
+        if name == "channel_allocation":
+            value = (
+                "encrypted"
+                if getattr(pdu, "channel_allocation_flag", 0)
+                and getattr(pdu, "encryption_mode", 0) != 0
+                else None
+            )
+        else:
+            value = getattr(pdu, name, None)
         if value is not None:
             fields.append(_format_scalar(name, value))
     return "DL; %s; Layer 2 - MAC(%s); %s" % (

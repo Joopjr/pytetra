@@ -457,10 +457,12 @@ class UpperMac(Layer, UpperTmvSap):
         except Exception:
             return None
 
-    @staticmethod
-    def _hide_filtered_ssi_output(pdu):
+    def _hide_filtered_ssi_output(self, pdu):
         """Hide compact chains excluded by identity and address policy."""
-        if getattr(pdu, "address_type", None) in (2, 3, 6):
+        address_type = getattr(pdu, "address_type", None)
+        if address_type == 6:
+            return not self.stack.should_emit_esi_usage_assignment(pdu)
+        if address_type in (2, 3):
             return True
         return getattr(pdu, "ssi", None) in (None, 0, 0xFFFFFF)
 
@@ -551,6 +553,8 @@ class UpperMac(Layer, UpperTmvSap):
                 "usage_marker=%s"
                 % (pdu.header, pdu.field1, pdu.field2, self.downlink_usage_marker)
             )
+
+        self.stack.record_usage_marker(pdu, self.downlink_usage_marker)
 
     def _handle_bsch(self, block):
         """

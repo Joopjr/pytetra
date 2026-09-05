@@ -85,19 +85,19 @@ class MacEnd(Pdu):
         UIntField("slot_granting_flag", 1),
         ConditionalField(UIntField("slot_granting_element", 8), lambda pkt: pkt.slot_granting_flag),
         UIntField("channel_allocation_flag", 1),
-        ConditionalField(UIntField("allocation_type", 2), lambda pkt: pkt.channel_allocation_flag),
-        ConditionalField(UIntField("timeslot_assigned", 4), lambda pkt: pkt.channel_allocation_flag),
-        ConditionalField(UIntField("up_down_assigned", 2), lambda pkt: pkt.channel_allocation_flag),
-        ConditionalField(UIntField("clch_permission", 1), lambda pkt: pkt.channel_allocation_flag),
-        ConditionalField(UIntField("cell_change", 1), lambda pkt: pkt.channel_allocation_flag),
-        ConditionalField(UIntField("carrier_number", 12), lambda pkt: pkt.channel_allocation_flag),
-        ConditionalField(UIntField("ext_carrier_number", 1), lambda pkt: pkt.channel_allocation_flag),
-        ConditionalField(UIntField("freq_band", 4), lambda pkt: pkt.channel_allocation_flag and pkt.ext_carrier_number),
-        ConditionalField(UIntField("offset", 2), lambda pkt: pkt.channel_allocation_flag and pkt.ext_carrier_number),
-        ConditionalField(UIntField("duplex_spacing", 3), lambda pkt: pkt.channel_allocation_flag and pkt.ext_carrier_number),
-        ConditionalField(UIntField("reverse_operation", 1), lambda pkt: pkt.channel_allocation_flag and pkt.ext_carrier_number),
-        ConditionalField(UIntField("monitoring_pattern", 2), lambda pkt: pkt.channel_allocation_flag),
-        ConditionalField(UIntField("frame_18_monitoring_pattern", 2), lambda pkt: pkt.channel_allocation_flag and pkt.monitoring_pattern == 0),
+        ConditionalField(UIntField("allocation_type", 2), lambda pkt: pkt.channel_allocation_flag and pkt.encryption_mode == 0),
+        ConditionalField(UIntField("timeslot_assigned", 4), lambda pkt: pkt.channel_allocation_flag and pkt.encryption_mode == 0),
+        ConditionalField(UIntField("up_down_assigned", 2), lambda pkt: pkt.channel_allocation_flag and pkt.encryption_mode == 0),
+        ConditionalField(UIntField("clch_permission", 1), lambda pkt: pkt.channel_allocation_flag and pkt.encryption_mode == 0),
+        ConditionalField(UIntField("cell_change", 1), lambda pkt: pkt.channel_allocation_flag and pkt.encryption_mode == 0),
+        ConditionalField(UIntField("carrier_number", 12), lambda pkt: pkt.channel_allocation_flag and pkt.encryption_mode == 0),
+        ConditionalField(UIntField("ext_carrier_number", 1), lambda pkt: pkt.channel_allocation_flag and pkt.encryption_mode == 0),
+        ConditionalField(UIntField("freq_band", 4), lambda pkt: pkt.channel_allocation_flag and pkt.encryption_mode == 0 and pkt.ext_carrier_number),
+        ConditionalField(UIntField("offset", 2), lambda pkt: pkt.channel_allocation_flag and pkt.encryption_mode == 0 and pkt.ext_carrier_number),
+        ConditionalField(UIntField("duplex_spacing", 3), lambda pkt: pkt.channel_allocation_flag and pkt.encryption_mode == 0 and pkt.ext_carrier_number),
+        ConditionalField(UIntField("reverse_operation", 1), lambda pkt: pkt.channel_allocation_flag and pkt.encryption_mode == 0 and pkt.ext_carrier_number),
+        ConditionalField(UIntField("monitoring_pattern", 2), lambda pkt: pkt.channel_allocation_flag and pkt.encryption_mode == 0),
+        ConditionalField(UIntField("frame_18_monitoring_pattern", 2), lambda pkt: pkt.channel_allocation_flag and pkt.encryption_mode == 0 and pkt.monitoring_pattern == 0),
     ]
 
     def __init__(self, bits):
@@ -184,10 +184,21 @@ class MacResourcePdu(Pdu):
         identity_field_name = mac_resource_identity_field_name(
             self.address_type, self.encryption_mode
         )
-        fields = (
-            (identity_field_name if key == "ssi" else key, value)
-            for key, value in self.fields.items()
-        )
+        fields = []
+        for key, value in self.fields.items():
+            fields.append((
+                identity_field_name if key == "ssi" else key,
+                value,
+            ))
+            if (
+                key == "channel_allocation_flag"
+                and value
+                and self.encryption_mode != 0
+            ):
+                # EN 300 392-2 clause 21.4.3.1: the channel-allocation
+                # element is cipher text whenever encryption mode is non-zero.
+                fields.append(("channel_allocation", "encrypted"))
+
         return format_record(self.__class__.__name__, fields)
 
     def __init__(self, bits):
@@ -235,7 +246,7 @@ class MacResourcePdu(Pdu):
 
         sdu = BitsField('sdu', sdu_bits).dissect(self, bits)
 
-        if self.fill_bits_indication:
+        if self.fill_bits_indication and self.encryption_mode == 0:
                 sdu = _remove_fill_bits(sdu)
 
         self.fields['sdu'] = sdu
@@ -334,3 +345,24 @@ class AccessAssignPdu(Pdu):
         UIntField("field1", 6),
         UIntField("field2", 6),
     ]
+
+    FIELD_NAMES = {
+        0: ("uplink_access_field_1", "uplink_access_field_2"),
+        1: ("downlink_usage_marker", "uplink_common_access"),
+        2: ("downlink_usage_marker", "uplink_access_opportunity"),
+        3: ("downlink_usage_marker", "uplink_usage_marker"),
+    }
+
+    def __repr__(self):
+        field1_name, field2_name = self.FIELD_NAMES.get(
+            self.header,
+            ("field1", "field2"),
+        )
+        return format_record(
+            self.__class__.__name__,
+            (
+                ("header", self.header),
+                (field1_name, self.field1),
+                (field2_name, self.field2),
+            ),
+        )

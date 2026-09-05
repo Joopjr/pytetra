@@ -8,6 +8,18 @@ MAC/LLC/MLE dispatch, and a subset of CMCE and MM PDUs.
 
 ## 1.1.0
 
+- kept encrypted MAC channel-allocation contents opaque for every non-zero
+  encryption mode and display the present element as
+  `ChannelAllocation(encrypted)` instead of reporting cipher text as carrier,
+  timeslot, allocation, direction, or monitoring values;
+- renamed diagnostic ACCESS-ASSIGN fields according to their two-bit header,
+  including downlink and uplink usage markers, common access, and uplink access
+  opportunities;
+- added `--show-esi` traffic-usage observations: the first valid AACH traffic
+  marker and the first ESI/Usage Marker assignment are shown once per local
+  five-second marker epoch, while repeated maintenance PDUs remain available
+  under `--debug`;
+
 - completed semantic decoding of the downlink `D-TX CONTINUE` CMCE PDU,
   including call identifier, continue decision, transmission-request
   permission, and optional elements;
