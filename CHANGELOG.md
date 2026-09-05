@@ -8,6 +8,15 @@ MAC/LLC/MLE dispatch, and a subset of CMCE and MM PDUs.
 
 ## 1.1.0
 
+- decoded ACCESS-ASSIGN uplink access fields into their access code and base
+  frame-length semantics instead of presenting the six-bit field as a generic
+  access opportunity;
+- correlated AACH observations by received carrier and physical timeslot,
+  reporting the previous marker only for a directly observed per-slot change;
+- extended traffic-marker reuse suppression to ten seconds, excluded reserved
+  marker values 1 through 3 from ESI assignments, and reset transition state
+  after uncertain AACH reception or stream discontinuities;
+
 - kept encrypted MAC channel-allocation contents opaque for every non-zero
   encryption mode and display the present element as
   `ChannelAllocation(encrypted)` instead of reporting cipher text as carrier,
