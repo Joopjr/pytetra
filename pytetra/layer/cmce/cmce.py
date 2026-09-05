@@ -10,6 +10,7 @@ from pytetra.layer.cmce.pdu import (
     DSetup,
     DStatus,
     DTxCeased,
+    DTxContinue,
     DTxGranted,
     DSdsData,
 )
@@ -67,6 +68,7 @@ class Cmce(Layer, UpperLcmcSap):
             DRelease,
             DSetup,
             DTxCeased,
+            DTxContinue,
             DTxGranted,
         ]:
             # CC sub-entity
