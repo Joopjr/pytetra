@@ -1,3 +1,4 @@
+from pytetra.timebase import g_timebase
 from pytetra.layer.sndcp import Sndcp
 from pytetra.layer.phy import Phy
 from pytetra.layer.mac import LowerMac, UpperMac
@@ -12,22 +13,28 @@ from contextlib import contextmanager
 
 class TetraStack(object):
     # One continuous downlink burst occupies one 14.167 ms TDMA timeslot.
-    # 353 observed bursts are therefore just over five seconds.
-    USAGE_MARKER_TIMEOUT_BURSTS = 353
+    # 706 observed bursts are therefore just over ten seconds.
+    USAGE_MARKER_TIMEOUT_BURSTS = 706
 
     def __init__(self, user_class=UserLayer, debug=False,
-                 debug_layer2=None, debug_llc=None, show_esi=False):
+                 debug_layer2=None, debug_llc=None, show_esi=False,
+                 carrier_frequency=None):
         Logger.reset()
         self.debug = bool(debug)
         self.show_esi = bool(show_esi)
+        self.carrier_frequency = (
+            int(carrier_frequency) if carrier_frequency is not None else None
+        )
         self.cck_id = None
         self._security_context_reported = False
         self._output_suppression_depth = 0
         self._burst_chains = None
         self._active_mac_chain = None
+        self._aach_slot_state.clear()
         self._burst_sequence = 0
         self._usage_marker_last_seen = {}
         self._esi_usage_assignments = set()
+        self._aach_slot_state = {}
         self.debug_layer2 = self.debug if debug_layer2 is None else bool(debug_layer2)
         self.debug_llc = self.debug if debug_llc is None else bool(debug_llc)
         self.sndcp = Sndcp(self)
@@ -119,15 +126,36 @@ class TetraStack(object):
         self._usage_marker_last_seen[usage_marker] = self._burst_sequence
         return is_new
 
+    def invalidate_aach_slot(self):
+        """Forget AACH state for the current slot after an uncertain decode."""
+        key = (self.carrier_frequency, g_timebase.tn)
+        self._aach_slot_state.pop(key, None)
+
     def record_usage_marker(self, pdu, usage_marker):
-        """Queue the first observed AACH traffic marker for compact output."""
-        is_new = self._observe_usage_marker(usage_marker)
+        """Queue factual first-seen and per-slot AACH marker changes."""
+        try:
+            usage_marker = int(usage_marker)
+        except (TypeError, ValueError):
+            return
+
+        key = (self.carrier_frequency, g_timebase.tn)
+        previous = self._aach_slot_state.get(key)
+        self._aach_slot_state[key] = usage_marker
+        first_after_cooldown = self._observe_usage_marker(usage_marker)
+
         if (
             self.debug
             or not self.show_esi
-            or not is_new
             or self._burst_chains is None
         ):
+            return
+
+        changed = previous is not None and previous != usage_marker
+        if not changed and not first_after_cooldown:
+            return
+
+        # Initial control-channel observations are state, not new traffic.
+        if previous is None and not 4 <= usage_marker <= 63:
             return
 
         self._burst_chains.append({
@@ -138,7 +166,10 @@ class TetraStack(object):
             "layer2": pdu,
             "layer3": None,
             "layer3_priority": -1,
-            "usage_marker": int(usage_marker),
+            "carrier_frequency": self.carrier_frequency,
+            "timeslot": g_timebase.tn,
+            "usage_marker": usage_marker,
+            "previous_usage_marker": previous if changed else None,
         })
 
     def should_emit_esi_usage_assignment(self, pdu):
@@ -153,7 +184,11 @@ class TetraStack(object):
 
         usage_marker = getattr(pdu, "usage_marker", None)
         esi = getattr(pdu, "ssi", None)
-        if esi is None:
+        try:
+            usage_marker = int(usage_marker)
+        except (TypeError, ValueError):
+            return False
+        if esi is None or not 4 <= usage_marker <= 63:
             return False
 
         self._observe_usage_marker(usage_marker)
